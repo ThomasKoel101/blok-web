@@ -745,10 +745,11 @@ function demoJars(now = Date.now()) {
   const miso = mk('miso', 'Sensei Soja', 300 * 24, { burps: [iso(now - 10 * DAY)], saltPct: 12 });
   const sauce = mk('hotsauce', 'Pepe Pikant', 20, {});
   const lemons = mk('lemons', 'Zonnetje', 5 * 24, { burps: [iso(now - 40 * HOUR)] });
+  const curtido = mk('curtido', 'Don Curtido', 4 * 24, { burps: [iso(now - 80 * HOUR), iso(now - 55 * HOUR), iso(now - 30 * HOUR), iso(now - 6 * HOUR)] });
   const old1 = harvest(mk('sauerkraut', 'Kapitein Kraut', 40 * 24, { ambientTemp: 18 }), now - 12 * DAY, 5);
   old1.log.unshift({ id: 'd1', at: iso(now - 14 * DAY), kind: 'taste', taste: 5, text: getLang() === 'nl' ? 'Knapperig en fris zuur, perfect.' : 'Crunchy and fresh, perfect.' });
   const old2 = harvest(mk('kimchi', 'Gochu Guus', 9 * 24, { ambientTemp: 23 }), now - 5 * DAY, 3);
-  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, old1, old2];
+  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, old1, old2];
 }
 
 // Event-delegatie voor alle knoppen met data-action.

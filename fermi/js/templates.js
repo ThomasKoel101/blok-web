@@ -31,6 +31,27 @@ export const TEMPLATES = [
     },
   },
   {
+    id: 'curtido', species: 'curtido', continent: 'americas', difficulty: 1, veg: true,
+    name: { nl: 'Curtido', en: 'Curtido' }, origin: { nl: 'El Salvador', en: 'El Salvador' },
+    salt: { def: 2, min: 1.5, max: 2.5 }, minH: 3 * H, maxH: 7 * H,
+    action: 'burp', burp: [{ fromH: 0, everyH: 24 }],
+    tasteEveryH: 24, fridgeDays: 60,
+    character: { nl: 'Gestreepte kool met wortelsjaal', en: 'Striped cabbage with a carrot scarf' },
+    names: ['Don Curtido', 'Pupusa Pablo', 'Oregano Olga', 'Señora Sla', 'Kooltje Carlos'],
+    info: {
+      nl: 'Fijngesneden witte kool met geraspte wortel, ui, gedroogde oregano en eventueel chilivlokken, gezouten en aangedrukt onder de pekel. Klassieke bijgerecht bij pupusas.',
+      en: 'Finely shredded white cabbage with grated carrot, onion, dried oregano and optional chilli flakes, salted and packed under the brine. The classic side for pupusas.',
+    },
+    good: {
+      nl: 'Bubbels na 1 tot 2 dagen, fris zuur met oregano in de geur, kool blijft knapperig.',
+      en: 'Bubbles after 1 to 2 days, fresh and sour with oregano on the nose, cabbage stays crunchy.',
+    },
+    mistakes: {
+      nl: 'Te weinig zout, groente boven de pekel, te lang buiten laten staan waardoor de knapperigheid verdwijnt.',
+      en: 'Too little salt, vegetables above the brine, leaving it out too long so it loses its crunch.',
+    },
+  },
+  {
     id: 'kimchi', species: 'kimchi', continent: 'asia', difficulty: 2, veg: true,
     name: { nl: 'Kimchi', en: 'Kimchi' }, origin: { nl: 'Korea', en: 'Korea' },
     salt: { def: 2.5, min: 2, max: 3 }, minH: 1 * H, maxH: 5 * H,

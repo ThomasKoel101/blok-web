@@ -37,7 +37,7 @@ const STRINGS = {
     saltLow: 'Let op: {p}% is onder de veilige ondergrens van {min}% voor dit ferment. Te weinig zout geeft ongewenste bacteriën vrij spel.',
     saltHigh: 'Dit is veel zout ({p}%). Niet gevaarlijk, maar fermentatie gaat trager en het wordt erg zout.',
     burpPlan: 'Ritme', burpEvery: '{verb} elke {t}', burpNone: 'Niet burpen (doek of luchtig afgedekt)',
-    vegTip: 'Tip: houd alles onder de pekel met een gewicht (glazen gewichtje, zakje pekel of kooltblad). Wat boven de pekel uitsteekt kan schimmelen.',
+    vegTip: 'Tip: houd alles onder de pekel met een gewicht (glazen gewichtje, zakje pekel of koolblad). Wat boven de pekel uitsteekt kan schimmelen.',
     // Detail
     burpNow: '{verb}', lastBurp: 'Laatst: {t}', nextBurp: 'Volgende: {t}', noBurp: 'Geen burp nodig',
     logTitle: 'Logboek', addNote: 'Notitie', addTaste: 'Proeven', addObs: 'Observatie', addPhoto: 'Foto',

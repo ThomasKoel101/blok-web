@@ -17,7 +17,7 @@ Open http://localhost:8080. Onder **Meer → Demo-potjes laden** zie je alle ste
 
 | Bestand | Inhoud |
 | --- | --- |
-| `js/templates.js` | 14 fermentatie-templates (zout, duur, burp-ritme, uitleg, fouten), NL/EN |
+| `js/templates.js` | 15 fermentatie-templates (zout, duur, burp-ritme, uitleg, fouten), NL/EN |
 | `js/logic.js` | Pure logica: status, burp-schema, stemming, urgentie, stil-uur, temperatuur, oogst, F2, badges, CSV |
 | `js/characters.js` | SVG-karakter per soort; gezicht en extra's volgen de stemming |
 | `js/app.js` | Schermen: Vandaag, Plank, Nieuw (2 stappen), Potje, Fermidex, Archief, Kahm-checker, Meer |

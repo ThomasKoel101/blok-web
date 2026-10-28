@@ -8,6 +8,14 @@ const S = {
       <path d="M60 36 C52 52 52 92 60 108 M60 60 C44 54 32 60 26 70 M60 60 C76 54 88 60 94 70 M60 84 C46 80 36 86 30 94 M60 84 C74 80 84 86 90 94" fill="none" stroke="#9cbf68" stroke-width="2.5" stroke-linecap="round"/>`,
     extra: `<path d="M44 84 C50 78 56 80 60 83 C64 80 70 78 76 84 C70 86 64 86 60 84 C56 86 50 86 44 84Z" fill="#6b4a2b"/>`,
   },
+  curtido: {
+    top: 34, faceY: 68,
+    body: `<circle cx="60" cy="72" r="38" fill="#e4edc4"/>
+      <g stroke="#f08a3c" stroke-width="3.5" stroke-linecap="round"><path d="M34 60 l10 4 M80 52 l8 -5 M30 86 l9 -2 M88 82 l-8 5 M58 100 l9 3"/></g>
+      <g fill="#c8372d"><circle cx="46" cy="96" r="1.8"/><circle cx="78" cy="96" r="1.8"/><circle cx="70" cy="46" r="1.6"/><circle cx="40" cy="46" r="1.6"/></g>
+      <path d="M60 34 C68 26 78 26 82 30 C76 36 66 36 60 34Z M60 34 C54 24 46 22 40 26 C46 32 54 34 60 34Z" fill="#5f8f3a"/>`,
+    extra: `<path d="M28 84 C44 96 76 96 92 84 L94 92 C76 104 44 104 26 92Z" fill="#f08a3c"/><path d="M84 92 l6 14 l6 -3 l-5 -12Z" fill="#e0742a"/>`,
+  },
   kimchi: {
     top: 32, faceY: 72,
     body: `<ellipse cx="60" cy="72" rx="36" ry="40" fill="#f0875a"/>
