@@ -1,0 +1,17 @@
+{
+  "name": "Fermi",
+  "short_name": "Fermi",
+  "description": "Elk fermentatiepotje een karakter: burpen, proeven, oogsten.",
+  "start_url": "./#/today",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6efe2",
+  "theme_color": "#f6efe2",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Vandaag", "url": "./#/today" },
+    { "name": "Nieuw potje", "url": "./#/new" }
+  ]
+}

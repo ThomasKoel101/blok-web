@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fermi</title>
+  <meta name="description" content="Fermi: elk fermentatiepotje wordt een karakter dat laat zien wat het nodig heeft.">
+  <meta name="theme-color" content="#f6efe2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1a15" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip</a>
+  <main id="main" tabindex="-1"></main>
+  <nav class="tabbar" aria-label="Fermi">
+    <a href="#/today" data-tab="today"><span aria-hidden="true">☀️</span><span data-i18n="navToday">Vandaag</span></a>
+    <a href="#/shelf" data-tab="shelf"><span aria-hidden="true">🫙</span><span data-i18n="navShelf">Plank</span></a>
+    <a href="#/new" data-tab="new" class="tab-new"><span aria-hidden="true">＋</span><span data-i18n="navNew">Nieuw</span></a>
+    <a href="#/dex" data-tab="dex"><span aria-hidden="true">📖</span><span data-i18n="navDex">Fermidex</span></a>
+    <a href="#/more" data-tab="more"><span aria-hidden="true">⋯</span><span data-i18n="navMore">Meer</span></a>
+  </nav>
+  <dialog id="modal"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript>Fermi heeft JavaScript nodig.</noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
