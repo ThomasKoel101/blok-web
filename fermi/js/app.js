@@ -704,6 +704,18 @@ function download(name, content, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+// Downloaden kan in sommige omgevingen geblokkeerd zijn; daarom ook altijd kopiëren.
+function dialogExport(name, content, type) {
+  openModal(`<h2>${esc(name)}</h2>
+    <textarea id="export-text" rows="8" readonly>${esc(content)}</textarea>
+    <div class="actions">
+      <button class="btn" type="button" data-action="copy-export">📋 ${getLang() === 'nl' ? 'Kopiëren' : 'Copy'}</button>
+      <button class="btn primary" value="download">⬇️ Download</button>
+      <button class="btn" value="cancel">${t('close')}</button>
+    </div>`,
+  () => download(name, content, type));
+}
+
 function readPhoto(file, max = 640) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -761,7 +773,9 @@ document.addEventListener('click', async (e) => {
     }
     case 'finish': updateJar(id, (j) => ({ ...j, status: 'done', finishedAt: nowISO() })); break;
     case 'delete':
-      if (confirm(t('confirmDelete'))) { commit((s) => { s.jars = s.jars.filter((j) => j.id !== id); }, { rerender: false }); location.hash = '#/shelf'; }
+      openModal(`<h2>${t('confirmDelete')}</h2><p><strong>${esc(jar.name)}</strong></p>
+        <div class="actions">${cancelBtn()}<button class="btn primary danger-fill" value="ok">${t('deleteJar')}</button></div>`,
+      () => { commit((s) => { s.jars = s.jars.filter((j) => j.id !== id); }, { rerender: false }); location.hash = '#/shelf'; });
       break;
     case 'shuffle-name': {
       const form = document.getElementById('new-form');
@@ -774,8 +788,13 @@ document.addEventListener('click', async (e) => {
     }
     case 'notif-enable': await notify.enable(); notify.scheduleAhead(state); render(); break;
     case 'notif-test': notify.test(); break;
-    case 'export-csv': download(`fermi-logboek-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(state.jars), 'text/csv;charset=utf-8'); break;
-    case 'export-json': download(`fermi-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1), 'application/json'); break;
+    case 'export-csv': dialogExport(`fermi-logboek-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(state.jars), 'text/csv;charset=utf-8'); break;
+    case 'export-json': dialogExport(`fermi-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1), 'application/json'); break;
+    case 'copy-export': {
+      const area = document.getElementById('export-text');
+      try { await navigator.clipboard.writeText(area.value); toast('📋 OK'); } catch { area.focus(); area.select(); }
+      break;
+    }
     case 'demo': commit((s) => { s.jars = [...s.jars, ...demoJars()]; }, { rerender: false }); location.hash = '#/today'; break;
     default: break;
   }
