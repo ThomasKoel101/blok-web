@@ -39,6 +39,8 @@ export function jarFromTemplate(tpl, fields = {}, now = Date.now()) {
     veg: !!tpl.veg,
     long: !!tpl.long,
     continent: tpl.continent,
+    avatar: tpl.avatar || null,
+    recipe: tpl.recipe || null,
     nextPhase: tpl.nextPhase || null,
     status: 'active',
     phase: 1,
@@ -270,6 +272,8 @@ export function templateFromJar(jar, baseTpl, name, now = Date.now()) {
     minH: Math.max(1, Math.round(actualH * 0.85)),
     maxH: Math.round(actualH * 1.25),
     names: [jar.name, ...(baseTpl.names || [])],
+    avatar: jar.avatar || baseTpl.avatar || null,
+    recipe: jar.recipe || baseTpl.recipe || null,
   };
 }
 

@@ -164,8 +164,55 @@ function moodExtras(mood, top, lidded) {
   }
 }
 
-export function character(species, mood = 'happy', { bloat = 0, lid = false, size = 120, label = '' } = {}) {
-  const s = S[species] || S.sauerkraut;
+
+// ---- Eigen ferment: avatar uit het recept (vorm, kleur, strepen, specerij-stipjes, hoedje) ----
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v) => Math.max(0, Math.min(255, Math.round(v + amt * 255)));
+  return `#${[n >> 16, (n >> 8) & 255, n & 255].map((v) => c(v).toString(16).padStart(2, '0')).join('')}`;
+}
+
+const SHAPES = {
+  round: { top: 34, faceY: 70, path: (f, d) => `<circle cx="60" cy="72" r="38" fill="${f}"/><path d="M60 36 C52 54 52 92 60 108 M60 62 C46 56 36 62 30 72 M60 62 C74 56 84 62 90 72" fill="none" stroke="${d}" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>` },
+  long: { top: 26, faceY: 64, path: (f, d) => `<path d="M36 40 C36 30 46 26 60 26 C74 26 84 30 84 40 C84 70 74 100 60 112 C46 100 36 70 36 40Z" fill="${f}"/><path d="M42 58 h10 M70 72 h9 M46 88 h8" stroke="${d}" stroke-width="2.5" stroke-linecap="round" opacity=".6"/>` },
+  drop: { top: 30, faceY: 72, path: (f, d) => `<path d="M60 30 C88 30 96 60 88 84 C80 104 70 112 60 112 C50 112 40 104 32 84 C24 60 32 30 60 30Z" fill="${f}"/><path d="M40 60 C42 50 48 44 56 42" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".35"/><path d="M52 32 C56 26 64 26 68 32" fill="none" stroke="${d}" stroke-width="3" stroke-linecap="round"/>` },
+  leaf: { top: 30, faceY: 70, path: (f, d) => `<path d="M60 22 C92 34 100 70 84 96 C76 108 66 112 60 112 C54 112 44 108 36 96 C20 70 28 34 60 22Z" fill="${f}"/><path d="M60 26 V110 M60 54 L44 44 M60 54 L76 44 M60 76 L40 66 M60 76 L80 66 M60 96 L46 88 M60 96 L74 88" fill="none" stroke="${d}" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>` },
+  bean: { top: 30, faceY: 66, path: (f, d) => `<path d="M40 30 C62 22 94 34 92 66 C90 92 76 112 52 110 C34 108 26 92 34 78 C40 68 26 60 26 48 C26 38 32 33 40 30Z" fill="${f}"/><path d="M38 44 C36 54 44 62 42 72" fill="none" stroke="${d}" stroke-width="2.5" stroke-linecap="round" opacity=".6"/>` },
+  bulb: { top: 22, faceY: 74, path: (f, d) => `<path d="M60 20 C62 34 74 40 86 52 C100 68 96 98 76 108 C66 113 54 113 44 108 C24 98 20 68 34 52 C46 40 58 34 60 20Z" fill="${f}"/><path d="M60 26 C56 50 50 80 54 108 M60 26 C64 50 70 80 66 108" fill="none" stroke="${d}" stroke-width="2" opacity=".55"/>` },
+};
+
+function hatSvg(hat, top, color) {
+  switch (hat) {
+    case 'sprout': return `<path d="M60 ${top + 2} C60 ${top - 8} 56 ${top - 14} 50 ${top - 16} C52 ${top - 8} 56 ${top - 4} 60 ${top + 2} M60 ${top + 2} C62 ${top - 10} 68 ${top - 16} 74 ${top - 16} C72 ${top - 8} 66 ${top - 4} 60 ${top + 2}" fill="#5aa04a" stroke="#3f7f3a" stroke-width="1.5"/>`;
+    case 'beret': return `<ellipse cx="54" cy="${top + 2}" rx="22" ry="7" fill="#3b3f6b"/><circle cx="54" cy="${top - 5}" r="2.5" fill="#3b3f6b"/>`;
+    case 'bow': return `<path d="M60 ${top + 4} L46 ${top - 4} L46 ${top + 12}Z M60 ${top + 4} L74 ${top - 4} L74 ${top + 12}Z" fill="#ff6f91"/><circle cx="60" cy="${top + 4}" r="3.5" fill="#e0517a"/>`;
+    case 'flower': return `<g transform="translate(78 ${top + 6})"><circle r="4" cx="0" cy="-5" fill="#fff"/><circle r="4" cx="5" cy="0" fill="#fff"/><circle r="4" cx="0" cy="5" fill="#fff"/><circle r="4" cx="-5" cy="0" fill="#fff"/><circle r="3" fill="#f5c542"/></g>`;
+    case 'bandana': return `<path d="M30 ${top + 14} C46 ${top + 6} 74 ${top + 6} 90 ${top + 14} L90 ${top + 20} C74 ${top + 12} 46 ${top + 12} 30 ${top + 20}Z" fill="${shade(color, -0.35)}"/><path d="M90 ${top + 16} L100 ${top + 10} M90 ${top + 18} L98 ${top + 24}" stroke="${shade(color, -0.35)}" stroke-width="4" stroke-linecap="round"/>`;
+    default: return '';
+  }
+}
+
+function customSpecies(av) {
+  const sh = SHAPES[av.shape] || SHAPES.round;
+  const fill = av.color || '#cfe3a6';
+  const dark = shade(fill, -0.18);
+  const tuft = av.tuft ? `<path d="M60 ${sh.top + 2} C54 ${sh.top - 12} 46 ${sh.top - 16} 40 ${sh.top - 14} M60 ${sh.top + 2} C60 ${sh.top - 14} 62 ${sh.top - 20} 64 ${sh.top - 22} M60 ${sh.top + 2} C68 ${sh.top - 12} 76 ${sh.top - 14} 82 ${sh.top - 10}" fill="none" stroke="#4f8a3a" stroke-width="5" stroke-linecap="round"/>` : '';
+  const stripes = av.accent ? `<g stroke="${av.accent}" stroke-width="3.5" stroke-linecap="round"><path d="M36 64 l9 4 M80 56 l8 -4 M34 90 l9 -2 M84 88 l-8 4"/></g>` : '';
+  const spots = [[44, 98], [76, 98], [70, 48], [42, 50]];
+  const dots = (av.dots || []).map((c, i) => `<circle cx="${spots[i][0]}" cy="${spots[i][1]}" r="2.4" fill="${c}" stroke="${shade(c, -0.25)}" stroke-width=".8"/>`).join('');
+  const cheeks = av.cheeks ? `<ellipse cx="42" cy="${sh.faceY + 10}" rx="6" ry="4" fill="#ff7b8a" opacity=".55"/><ellipse cx="78" cy="${sh.faceY + 10}" rx="6" ry="4" fill="#ff7b8a" opacity=".55"/>` : '';
+  return {
+    top: sh.top - (av.tuft ? 10 : 0),
+    faceY: sh.faceY,
+    wobble: av.shape === 'long',
+    body: `<g transform="rotate(${av.tilt || 0} 60 80)">${tuft}${sh.path(fill, dark)}${stripes}${dots}</g>`,
+    extra: `${cheeks}${hatSvg(av.hat, sh.top, fill)}`,
+  };
+}
+
+export function character(species, mood = 'happy', { bloat = 0, lid = false, size = 120, label = '', avatar = null } = {}) {
+  const s = avatar ? customSpecies(avatar) : S[species] || S.sauerkraut;
   const lidded = lid && !s.lidless;
   const scale = mood === 'sleepy' ? 0.88 : 1 + bloat * 0.22;
   const slump = mood === 'tired' ? 'translateY(6px) scaleY(.92)' : '';

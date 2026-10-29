@@ -4,7 +4,11 @@ import {
   tempFactor, harvest, startNextPhase, templateFromJar, fermidex, earnedBadges, burpStreak, toCSV,
 } from './logic.js';
 import { character } from './characters.js';
-import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen } from './i18n.js';
+import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, monthName } from './i18n.js';
+import {
+  CATEGORIES, SPICES, searchIngredients, makeItem, customItem, mainItem, deriveRecipe, recipeSalt, recipeWarnings,
+  inSeason, seasonRange, makeAvatar, suggestCustomName, recipeTemplate, templateFromRecipeJar, INGREDIENTS,
+} from './ingredients.js';
 import { load, save, normalize } from './store.js';
 import * as notify from './notify.js';
 
@@ -19,6 +23,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const allTemplates = () => [...TEMPLATES, ...state.customTemplates];
 const tplById = (id) => allTemplates().find((x) => x.id === id);
 const jarById = (id) => state.jars.find((j) => j.id === id);
+// Eigen ferment-potjes hebben geen bibliotheek-template; die leiden we af uit het recept.
+const jarTpl = (jar) => tplById(jar.templateId) || (jar.recipe ? templateFromRecipeJar(jar) : TEMPLATES[0]);
+const repeatHref = (jar) => (tplById(jar.templateId) ? `#/new/${jar.templateId}?from=${jar.id}` : `#/custom?from=${jar.id}`);
 const nowISO = () => new Date().toISOString();
 const uid = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const verb = (action) => t({ burp: 'doBurp', shake: 'doShake', check: 'doCheck' }[action] || 'doBurp');
@@ -48,7 +55,7 @@ function route() {
   return { parts: path.split('/').filter(Boolean), q: new URLSearchParams(query || '') };
 }
 
-const isFormView = () => route().parts[0] === 'new' && route().parts[1];
+const isFormView = () => (route().parts[0] === 'new' && route().parts[1]) || route().parts[0] === 'custom';
 
 function render() {
   const { parts, q } = route();
@@ -57,6 +64,7 @@ function render() {
     today: () => viewToday(now),
     shelf: () => viewShelf(now),
     new: () => (parts[1] ? viewNewDetails(parts[1], q, now) : viewNewPick(q)),
+    custom: () => viewCustom(q, now),
     jar: () => viewJar(parts[1], now),
     template: () => viewTemplate(parts[1]),
     dex: () => viewDex(now),
@@ -72,19 +80,20 @@ function render() {
   }
   main.innerHTML = (views[parts[0]] || views.today)();
   document.querySelectorAll('.tabbar a').forEach((a) => {
-    const active = a.dataset.tab === (parts[0] === 'jar' ? 'shelf' : parts[0] || 'today');
+    const active = a.dataset.tab === (parts[0] === 'jar' ? 'shelf' : parts[0] === 'custom' ? 'new' : parts[0] || 'today');
     a.classList.toggle('active', active);
     a.setAttribute('aria-current', active ? 'page' : 'false');
   });
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   if (parts[0] === 'new' && parts[1]) bindNewForm();
+  if (parts[0] === 'custom') bindCustom();
 }
 
 // ---------- Kleine bouwstenen ----------
 
 function jarChar(jar, now, size = 96) {
   const m = mood(jar, now);
-  return character(jar.species, m, { bloat: bloat(jar, now), lid: jar.action === 'burp', size, label: `${jar.name}: ${t(`mood_${m}`)}` });
+  return character(jar.species, m, { bloat: bloat(jar, now), lid: jar.action === 'burp', size, label: `${jar.name}: ${t(`mood_${m}`)}`, avatar: jar.avatar });
 }
 
 function stageText(jar, now) {
@@ -143,7 +152,7 @@ function viewToday(now) {
       <a class="today-char" href="#/jar/${jar.id}">${jarChar(jar, now, 72)}</a>
       <div class="today-body">
         <a href="#/jar/${jar.id}" class="today-name">${esc(jar.name)}</a>
-        <div class="muted small">${esc(tl(tplById(jar.templateId)?.name))} · ${t(`mood_${mood(jar, now)}`)}</div>
+        <div class="muted small">${esc(tl(jarTpl(jar).name))} · ${t(`mood_${mood(jar, now)}`)}</div>
         <div class="tasks">${ts.map((x) => taskLine(jar, x, now)).join('')}</div>
         ${ts.some((x) => x.pressure) ? `<p class="alert" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
         ${withButtons ? `<div class="actions">${ts.filter((x) => x.type !== 'overdue').map((x) => taskButton(jar, x)).join('')}${ts.some((x) => x.type === 'overdue') ? taskButton(jar, { type: 'taste' }) + taskButton(jar, { type: 'harvest' }) : ''}</div>` : ''}
@@ -183,7 +192,7 @@ function viewShelf(now) {
 function tplCard(tpl) {
   return `<article class="tpl-card">
       <a class="tpl-main" href="#/new/${tpl.id}">
-        ${character(tpl.species, 'happy', { size: 64, lid: tpl.action === 'burp' })}
+        ${character(tpl.species, 'happy', { size: 64, lid: tpl.action === 'burp', avatar: tpl.avatar })}
         <span class="tpl-name">${esc(tl(tpl.name))}</span>
         <span class="muted small">${esc(tl(tpl.origin))}</span>
         <span class="tpl-meta"><span>${fmtRange(tpl.minH, tpl.maxH)}</span><span aria-label="${t(`difficulty_${tpl.difficulty}`)}">${'●'.repeat(tpl.difficulty)}${'○'.repeat(3 - tpl.difficulty)}</span></span>
@@ -204,6 +213,10 @@ function viewNewPick(q) {
   const list = TEMPLATES.filter((x) => (!c || x.continent === c) && (!d || String(x.difficulty) === d));
   return `${header(t('newTitle'), '#/today')}
     <p class="muted">${t('step', { n: 1 })} · ${t('pickTemplate')}</p>
+    <a class="card custom-card" href="#/custom">
+      ${character('custom', 'happy', { size: 72, avatar: makeAvatar([makeItem('carrot', 300), makeItem('redcabbage', 500)], [SPICES[0], SPICES[6]], 7) })}
+      <span><b>✨ ${t('customTitle')}</b><br><span class="muted small">${t('customCardSub')}</span></span>
+    </a>
     ${state.customTemplates.length ? `<h2>${t('myTemplates')}</h2><div class="tpl-grid">${state.customTemplates.map(tplCard).join('')}</div>` : ''}
     <div class="filters" role="group" aria-label="${t('filterContinent')}">${CONTINENTS.map((x) => chip('c', x, t(`continent_${x}`))).join('')}</div>
     <div class="filters" role="group" aria-label="${t('filterDifficulty')}">${[1, 2, 3].map((x) => chip('d', String(x), t(`difficulty_${x}`))).join('')}</div>
@@ -244,7 +257,7 @@ function viewNewDetails(tplId, q, now) {
   return `${header(t('newTitle'), '#/new')}
     <p class="muted">${t('step', { n: 2 })} · ${esc(tl(tpl.name))}</p>
     <form id="new-form" class="form" data-tpl="${tpl.id}" data-unit="${unit}">
-      <div class="new-hero">${character(tpl.species, 'sleepy', { size: 88, lid: tpl.action === 'burp' })}
+      <div class="new-hero">${character(tpl.species, 'sleepy', { size: 88, lid: tpl.action === 'burp', avatar: tpl.avatar })}
         <div class="grow"><label>${t('fName')}<span class="row"><input name="name" required maxlength="40" value="${esc(v.name)}"><button type="button" class="btn icon" data-action="shuffle-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button></span></label></div>
       </div>
       <div class="grid2">
@@ -326,7 +339,7 @@ function viewTemplate(id) {
   if (!tpl) return viewNewPick(new URLSearchParams());
   return `${header(tl(tpl.name), '#/new')}
     <section class="tpl-detail">
-      <div class="center">${character(tpl.species, 'happy', { size: 140, lid: tpl.action === 'burp' })}<p class="muted">${esc(tl(tpl.character))} · ${esc(tl(tpl.origin))}</p></div>
+      <div class="center">${character(tpl.species, 'happy', { size: 140, lid: tpl.action === 'burp', avatar: tpl.avatar })}<p class="muted">${esc(tl(tpl.character))} · ${esc(tl(tpl.origin))}</p></div>
       <dl class="facts">
         <dt>${t('salt')}</dt><dd>${tpl.salt ? `${tpl.salt.def}% (${tpl.salt.min}–${tpl.salt.max}%)` : 'n.v.t.'}</dd>
         <dt>${t('duration')}</dt><dd>${fmtRange(tpl.minH, tpl.maxH)}</dd>
@@ -366,7 +379,7 @@ function entryHtml(jar, e) {
 function viewJar(id, now) {
   const jar = jarById(id);
   if (!jar) return `${header('?', '#/shelf')}<p>${getLang() === 'nl' ? 'Dit potje bestaat niet (meer).' : 'This jar does not exist (anymore).'}</p>`;
-  const tpl = tplById(jar.templateId) || TEMPLATES[0];
+  const tpl = jarTpl(jar);
   const m = mood(jar, now);
   const active = jar.status === 'active';
   const b = burpState(jar, now);
@@ -406,7 +419,7 @@ function viewJar(id, now) {
           ${jar.rating ? `<dt>★</dt><dd aria-label="${jar.rating}/5">${stars(jar.rating)}</dd>` : ''}
         </dl>
         <div class="actions">
-          <a class="btn primary" href="#/new/${jar.templateId}?from=${jar.id}">🔁 ${t('repeat')}</a>
+          <a class="btn primary" href="${repeatHref(jar)}">🔁 ${t('repeat')}</a>
           <button class="btn" data-action="save-template" data-id="${jar.id}">💾 ${t('saveTemplate')}</button>
           ${jar.status === 'fridge' ? `<button class="btn" data-action="finish" data-id="${jar.id}">✔️ ${t('finish')}</button>` : ''}
         </div>
@@ -421,6 +434,7 @@ function viewJar(id, now) {
       </dl>
       ${active ? `<button class="btn small" data-action="edit" data-id="${jar.id}">✏️ ${t('edit')}</button>` : ''}
     </section>
+    ${jar.recipe ? recipeCard(jar) : ''}
     <section>
       <h2>${t('logTitle')}</h2>
       <div class="actions">
@@ -446,6 +460,7 @@ function viewDex(now) {
         ${character(tpl.species, got ? 'proud' : 'happy', { size: 72, label: got ? tl(tpl.name) : t('dexLocked') })}
         <span>${got ? esc(tl(tpl.name)) : '???'}</span><small>${got ? esc(tl(tpl.origin)) : t('dexLocked')}</small></a>`;
     }).join('')}</div>
+    ${state.jars.some((j) => j.recipe) ? `<h2>✨ ${t('dexOwn')}</h2><div class="mini-row">${state.jars.filter((j) => j.recipe).map((j) => `<a class="mini" href="#/jar/${j.id}">${character('custom', j.harvestedAt ? 'proud' : 'happy', { size: 56, avatar: j.avatar })}<span>${esc(j.name)}</span><small>${esc(j.recipe.items.map((i) => tl(i.name)).join(' + '))}</small></a>`).join('')}</div>` : ''}
     <h2>${t('badgesTitle')}</h2>
     ${streak ? `<p class="streak">🔥 ${t('streak', { n: streak })}</p>` : ''}
     <ul class="badges">${badges.map((bd) => `<li class="${bd.earned ? 'earned' : ''}"><span class="badge-icon" aria-hidden="true">${bd.icon}</span><div><b>${t(`badge_${bd.id}`)}</b><small>${t(`badge_${bd.id}_d`)}</small></div><span class="sr">${bd.earned ? '✓' : '—'}</span></li>`).join('')}</ul>
@@ -458,7 +473,7 @@ function viewArchive() {
   const done = state.jars.filter((j) => j.status !== 'active').sort((a, b) => Date.parse(b.harvestedAt) - Date.parse(a.harvestedAt));
   const best = done.filter((j) => j.rating).sort((a, b) => b.rating - a.rating).slice(0, 3);
   const row = (jar) => {
-    const tpl = tplById(jar.templateId);
+    const tpl = jarTpl(jar);
     const lastTaste = [...jar.log].reverse().find((e) => e.kind === 'taste' && e.text);
     return `<article class="card archive-card">
       <a href="#/jar/${jar.id}">${jarChar(jar, Date.now(), 56)}</a>
@@ -467,7 +482,7 @@ function viewArchive() {
         <div class="small">${jar.rating ? `<span aria-label="${jar.rating}/5">${stars(jar.rating)}</span> · ` : ''}${fmtDuration((Date.parse(jar.harvestedAt) - Date.parse(jar.startedAt)) / HOUR)} · ${jar.ambientTemp ?? 20} °C${jar.saltPct ? ` · ${jar.saltPct}%` : ''} · ${t(jar.status === 'fridge' ? 'status_fridge' : 'status_done')}</div>
         ${lastTaste ? `<div class="muted small">“${esc(lastTaste.text)}”</div>` : ''}
       </div>
-      <a class="btn small" href="#/new/${jar.templateId}?from=${jar.id}" aria-label="${t('repeat')}">🔁</a>
+      <a class="btn small" href="${repeatHref(jar)}" aria-label="${t('repeat')}">🔁</a>
     </article>`;
   };
   return `${header(t('archiveTitle'), '#/dex')}
@@ -542,6 +557,304 @@ function viewMore() {
       <p class="disclaimer">${t('disclaimer')}</p>
       <p class="muted small">${t('templateDisclaimer')}</p>
     </section>`;
+}
+
+
+// ---------- Eigen ferment (E1–E10) ----------
+
+let draft = null;
+
+function newDraft(from) {
+  const d = { fromId: from?.id || null, items: [], spices: [], overrides: {}, seed: Math.floor(Math.random() * 1e6), name: '', nameTouched: false, color: null, query: '', temp: 20, volumeL: 1 };
+  if (from?.recipe) {
+    d.items = from.recipe.items.map((i) => ({ ...i }));
+    d.spices = from.recipe.spices.map((x) => ({ ...x }));
+    d.overrides = { method: from.recipe.method, saltPct: from.saltPct, waterG: from.recipe.waterG, minD: Math.round(from.minH / 24), maxD: Math.round(from.maxH / 24), burpEveryH: from.burp?.[0]?.everyH ?? 0 };
+    if (from.avatar) { d.seed = from.avatar.seed; d.color = from.avatar.color; }
+    d.name = `${from.name} II`;
+    d.nameTouched = true;
+    d.temp = from.ambientTemp ?? 20;
+    d.volumeL = from.volumeL ?? 1;
+  }
+  return d;
+}
+
+const numOr = (v, fb) => (v === '' || v === undefined || v === null || Number.isNaN(Number(v)) ? fb : Number(v));
+
+function effectivePlan() {
+  const d = deriveRecipe(draft.items);
+  if (!d) return null;
+  const o = draft.overrides;
+  const method = o.method || d.method;
+  const brineWater = d.waterG || Math.round((d.totalG * 0.8) / 10) * 10;
+  return {
+    derived: d,
+    method,
+    saltPct: numOr(o.saltPct, method === d.method ? d.saltPct : method === 'dry' ? 2 : 2.5),
+    waterG: method === 'brine' ? numOr(o.waterG, brineWater) : 0,
+    minD: Math.max(1, numOr(o.minD, d.minD)),
+    maxD: Math.max(1, numOr(o.maxD, d.maxD)),
+    burpEveryH: Math.max(0, numOr(o.burpEveryH, d.burpEveryH)),
+  };
+}
+
+function draftAvatar() {
+  const av = makeAvatar(draft.items, draft.spices, draft.seed);
+  if (draft.color) av.color = draft.color;
+  return av;
+}
+
+const draftName = () => (draft.nameTouched ? draft.name : suggestCustomName(draft.items, getLang(), draft.seed));
+
+function seasonLabel(item) {
+  if (!item.season) return t('seasonUnknown');
+  if (item.season.length === 12) return t('seasonAll');
+  const r = seasonRange(item);
+  return inSeason(item) ? `🌱 ${t('seasonNow')}` : t('seasonOut', { range: `${monthName(r[0])}–${monthName(r[1])}` });
+}
+
+const itemMeta = (i) => `${t(`cat_${i.category}`)} · ${t(`hard_${i.hardness}`)} · ${t(`sugar_${i.sugar}`)}`;
+
+function viewCustom(q, now) {
+  if (!draft || (q.get('from') && draft.fromId !== q.get('from'))) draft = newDraft(q.get('from') ? jarById(q.get('from')) : null);
+  return `${header(t('customTitle'), '#/new')}
+    <p class="muted">${t('step', { n: 2 })} · ${t('customCardSub')}</p>
+    <form id="custom-form" class="form" novalidate>
+      <section class="card">
+        <h2>${t('cVeg')}</h2>
+        <label for="ing-search">${t('cVegSearch')}</label>
+        <input id="ing-search" type="search" autocomplete="off" value="${esc(draft.query)}" placeholder="${getLang() === 'nl' ? 'bijv. rode kool, wortel, appel' : 'e.g. red cabbage, carrot, apple'}">
+        <div id="ing-suggest" class="suggest"></div>
+        <p class="muted small">${t('cVegHint')}</p>
+        <ul id="ing-list" class="ing-list"></ul>
+      </section>
+      <section class="card">
+        <h2>${t('cSpices')}</h2>
+        <div id="spice-chips" class="filters wrap"></div>
+        <div class="row add-row"><input id="spice-free" placeholder="${t('cSpiceFree')}" aria-label="${t('cSpiceFree')}"><button type="button" class="btn" data-action="spice-free">${t('cAdd')}</button></div>
+        <ul id="spice-list" class="ing-list"></ul>
+      </section>
+      <section class="card" id="plan-box"></section>
+      <section class="card" id="avatar-box"></section>
+      <section class="card">
+        <h2>${t('cStart')}</h2>
+        <div class="grid-auto">
+          <label>${t('fStart')}<input type="datetime-local" id="c-start" value="${toLocalInput(now)}"></label>
+          <label>${t('fTemp')}<input type="number" id="c-temp" min="5" max="40" step="0.5" value="${esc(draft.temp)}" inputmode="decimal"></label>
+          <label>${t('fVolume')}<input type="number" id="c-volume" min="0.05" step="0.05" value="${esc(draft.volumeL)}" inputmode="decimal"></label>
+        </div>
+        <p class="tip">🪨 ${t('vegTip')}</p>
+      </section>
+      <div id="custom-error"></div>
+      <button class="btn primary big" type="submit">${t('create')}</button>
+      <p class="center"><button type="button" class="btn danger small" data-action="custom-restart">${t('cRestart')}</button></p>
+    </form>`;
+}
+
+function renderSuggest() {
+  const box = document.getElementById('ing-suggest');
+  if (!box) return;
+  const q = draft.query.trim();
+  if (!q) { box.innerHTML = ''; return; }
+  const hits = searchIngredients(q);
+  box.innerHTML = `${hits.map((i) => `<button type="button" class="suggest-item" data-action="ing-add" data-ing="${i.id}">
+      <span class="swatch" style="background:${i.color}"></span><span><b>${esc(tl(i.name))}</b><small>${itemMeta(i)} · ${seasonLabel(i)}</small></span></button>`).join('')}
+    <div class="free-add"><span class="muted small">${hits.length ? t('cNoMatch') : t('cAddFree', { name: esc(q) })}</span>
+      <div class="filters wrap">${CATEGORIES.map((c) => `<button type="button" class="chip" data-action="ing-free" data-cat="${c}">${t(`cat_${c}`)}</button>`).join('')}</div></div>`;
+}
+
+function renderIngredients() {
+  const list = document.getElementById('ing-list');
+  if (!list) return;
+  const main = mainItem(draft.items);
+  list.innerHTML = draft.items.map((i, idx) => `<li>
+      <span class="swatch" style="background:${i.color}"></span>
+      <div class="grow"><b>${esc(tl(i.name))}</b>${i === main ? ` <span class="pill">${t('cMain')}</span>` : ''}<small class="block muted">${itemMeta(i)} · ${seasonLabel(i)}</small></div>
+      <label class="weight">${t('cWeight')}<input type="number" min="0" step="10" inputmode="numeric" data-ing-weight="${idx}" value="${i.weightG || ''}"></label>
+      <button type="button" class="btn icon small" data-action="ing-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(i.name))}">✕</button>
+    </li>`).join('');
+}
+
+function renderSpices() {
+  const chips = document.getElementById('spice-chips');
+  if (!chips) return;
+  const chosen = new Set(draft.spices.map((x) => x.id));
+  chips.innerHTML = SPICES.map((x) => `<button type="button" class="chip${chosen.has(x.id) ? ' on' : ''}" aria-pressed="${chosen.has(x.id)}" data-action="spice-toggle" data-spice="${x.id}">${esc(tl(x.name))}</button>`).join('');
+  document.getElementById('spice-list').innerHTML = draft.spices.map((x, idx) => `<li>
+      <span class="swatch" style="background:${x.color}"></span>
+      <div class="grow"><b>${esc(tl(x.name))}</b>${x.hint ? `<small class="block muted">💡 ${esc(tl(x.hint))}</small>` : ''}</div>
+      <label class="weight">${t('cAmount')}<input data-spice-amount="${idx}" value="${esc(x.amount || '')}" placeholder="${getLang() === 'nl' ? 'bijv. 1 tl' : 'e.g. 1 tsp'}"></label>
+      <button type="button" class="btn icon small" data-action="spice-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(x.name))}">✕</button>
+    </li>`).join('');
+}
+
+function renderPlan() {
+  const box = document.getElementById('plan-box');
+  if (!box) return;
+  const p = effectivePlan();
+  if (!p) { box.innerHTML = `<h2>${t('cPlan')}</h2><p class="muted">${t('cNeedVeg')}</p>`; return; }
+  box.innerHTML = `<h2>${t('cPlan')}</h2>
+    <p class="muted small">${t('cPlanHint')}</p>
+    <div class="method-toggle" role="radiogroup" aria-label="${t('cMethod')}">
+      ${['dry', 'brine'].map((m) => `<label class="chip${p.method === m ? ' on' : ''}"><input type="radio" name="c-method" value="${m}" data-plan="method"${p.method === m ? ' checked' : ''}> ${t(`method_${m}`)}</label>`).join('')}
+    </div>
+    <p class="small">${t(`methodWhy_${p.method}`)}</p>
+    <div class="grid3">
+      <label>${t('fSalt')}<input type="number" min="0" max="15" step="0.1" data-plan="saltPct" value="${p.saltPct}" inputmode="decimal"></label>
+      ${p.method === 'brine' ? `<label>${t('fWater')}<input type="number" min="0" step="10" data-plan="waterG" value="${p.waterG}" inputmode="numeric"></label>` : ''}
+      <label>${t('fMinDays')}<input type="number" min="1" data-plan="minD" value="${p.minD}" inputmode="numeric"></label>
+      <label>${t('fMaxDays')}<input type="number" min="1" data-plan="maxD" value="${p.maxD}" inputmode="numeric"></label>
+      <label>${t('cBurpEvery')}<input type="number" min="0" step="1" data-plan="burpEveryH" value="${p.burpEveryH}" inputmode="numeric"><small class="muted">${t('cBurpNone')}</small></label>
+    </div>
+    <div id="plan-out"></div>`;
+  renderPlanOut();
+}
+
+function renderPlanOut() {
+  const out = document.getElementById('plan-out');
+  const p = effectivePlan();
+  if (!out || !p) return;
+  const temp = Number(document.getElementById('c-temp')?.value || draft.temp);
+  const fac = tempFactor(temp);
+  const warns = recipeWarnings(draft.items, p).map((w) => {
+    if (w.code === 'saltLow') return t('warnSaltLow');
+    if (w.code === 'fruit') return t('warnFruit', { p: w.share });
+    return t('warnStarch', { names: w.names.map((i) => tl(i.name)).join(', ') });
+  });
+  out.innerHTML = `<output class="salt-out">${t('fSaltNeeded', { g: recipeSalt(draft.items, p).toLocaleString(getLang()) })}</output>
+    <p class="muted small">${t('cTotal', { g: p.derived.totalG })} · ${t('fTempEffect', { t: temp, range: fmtRange(p.minD * 24 * fac, Math.max(p.minD, p.maxD) * 24 * fac) })}</p>
+    ${warns.map((w) => `<p class="alert" role="alert">⚠️ ${esc(w)}</p>`).join('')}
+    ${Object.keys(draft.overrides).length ? `<button type="button" class="btn small" data-action="plan-reset">↺ ${t('cReset')}</button>` : ''}`;
+}
+
+function renderAvatar() {
+  const box = document.getElementById('avatar-box');
+  if (!box) return;
+  const av = draftAvatar();
+  const p = effectivePlan();
+  box.innerHTML = `<h2>${t('cAvatar')}</h2>
+    <div class="avatar-row">
+      <div id="avatar-preview" class="avatar-preview">${draft.items.length ? character('custom', 'happy', { size: 130, avatar: av, lid: !!p?.burpEveryH, label: draftName() }) : character('custom', 'sleepy', { size: 130, avatar: { shape: 'round', color: '#e6dac6', dots: [] } })}</div>
+      <div class="grow">
+        <label>${t('fName')}<span class="row"><input id="c-name" maxlength="40" value="${esc(draftName())}"><button type="button" class="btn icon" data-action="custom-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button></span></label>
+        <label class="color-label">${t('cColor')}<input type="color" id="c-color" value="${av.color}"></label>
+        <button type="button" class="btn" data-action="avatar-regen">🔄 ${t('cRegen')}</button>
+      </div>
+    </div>
+    <p class="muted small">${t('cAvatarHint')}</p>`;
+}
+
+function updatePreview() {
+  const el = document.getElementById('avatar-preview');
+  if (el && draft.items.length) el.innerHTML = character('custom', 'happy', { size: 130, avatar: draftAvatar(), lid: !!effectivePlan()?.burpEveryH, label: draftName() });
+}
+
+function renderCustomAll() {
+  renderSuggest(); renderIngredients(); renderSpices(); renderPlan(); renderAvatar();
+}
+
+function bindCustom() {
+  const form = document.getElementById('custom-form');
+  renderCustomAll();
+  form.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.id === 'ing-search') { draft.query = el.value; renderSuggest(); return; }
+    if (el.dataset.ingWeight !== undefined) {
+      draft.items[Number(el.dataset.ingWeight)].weightG = Number(el.value) || 0;
+      if (!draft.overrides.waterG) renderPlan(); else renderPlanOut();
+      renderAvatar();
+      return;
+    }
+    if (el.dataset.spiceAmount !== undefined) { draft.spices[Number(el.dataset.spiceAmount)].amount = el.value; return; }
+    if (el.dataset.plan) {
+      draft.overrides[el.dataset.plan] = el.value;
+      if (el.dataset.plan === 'method') { delete draft.overrides.saltPct; renderPlan(); } else renderPlanOut();
+      if (el.dataset.plan === 'burpEveryH') updatePreview();
+      return;
+    }
+    if (el.id === 'c-name') { draft.name = el.value; draft.nameTouched = true; return; }
+    if (el.id === 'c-color') { draft.color = el.value; updatePreview(); return; }
+    if (el.id === 'c-temp') { draft.temp = el.value; renderPlanOut(); return; }
+    if (el.id === 'c-volume') draft.volumeL = el.value;
+  });
+  // Gewicht bepaalt de hoofdgroente; na het intypen de lijst opnieuw tekenen.
+  form.addEventListener('change', (e) => { if (e.target.dataset.ingWeight !== undefined) renderIngredients(); });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const p = effectivePlan();
+    const err = document.getElementById('custom-error');
+    if (!p) { err.innerHTML = `<p class="alert" role="alert">${t('cNeedVeg')}</p>`; document.getElementById('ing-search').focus(); return; }
+    const avatar = draftAvatar();
+    const name = draftName().trim() || 'Fermi';
+    p.maxD = Math.max(p.minD, p.maxD);
+    const tpl = recipeTemplate({ items: draft.items, spices: draft.spices, plan: p, avatar, name });
+    const startVal = document.getElementById('c-start').value;
+    const jar = jarFromTemplate(tpl, {
+      name,
+      startedAt: startVal ? new Date(startVal).getTime() : Date.now(),
+      volumeL: numOr(draft.volumeL, 1),
+      saltPct: p.saltPct,
+      vegG: p.derived.totalG,
+      waterG: p.method === 'brine' ? p.waterG : 0,
+      ambientTemp: numOr(draft.temp, 20),
+    });
+    jar.log.push({ id: uid('e'), at: jar.startedAt, kind: 'event', event: 'created' });
+    commit((s) => { s.jars.push(jar); }, { rerender: false });
+    draft = null;
+    location.hash = `#/jar/${jar.id}`;
+  });
+}
+
+function customAction(action, el) {
+  switch (action) {
+    case 'ing-add': {
+      const exists = draft.items.some((i) => i.id === el.dataset.ing);
+      if (!exists) draft.items.push(makeItem(el.dataset.ing, draft.items.length ? 100 : 1000));
+      break;
+    }
+    case 'ing-free': {
+      const name = draft.query.trim();
+      if (name) draft.items.push(customItem(name.charAt(0).toUpperCase() + name.slice(1), el.dataset.cat, draft.items.length ? 100 : 1000));
+      break;
+    }
+    case 'ing-remove': draft.items.splice(Number(el.dataset.idx), 1); break;
+    case 'spice-toggle': {
+      const i = draft.spices.findIndex((x) => x.id === el.dataset.spice);
+      if (i >= 0) draft.spices.splice(i, 1); else draft.spices.push({ ...SPICES.find((x) => x.id === el.dataset.spice) });
+      break;
+    }
+    case 'spice-free': {
+      const input = document.getElementById('spice-free');
+      const name = input.value.trim();
+      if (!name) return true;
+      const known = SPICES.find((x) => [x.name.nl, x.name.en].some((n) => n.toLowerCase() === name.toLowerCase()));
+      if (known && !draft.spices.some((x) => x.id === known.id)) draft.spices.push({ ...known });
+      else if (!known) draft.spices.push({ id: `free-${Date.now()}`, name: { nl: name, en: name }, color: '#7a5a3a' });
+      input.value = '';
+      break;
+    }
+    case 'spice-remove': draft.spices.splice(Number(el.dataset.idx), 1); break;
+    case 'plan-reset': draft.overrides = {}; break;
+    case 'avatar-regen': draft.seed = Math.floor(Math.random() * 1e6); draft.color = null; break;
+    case 'custom-name': draft.nameTouched = false; draft.seed += 1; break;
+    case 'custom-restart': draft = newDraft(null); render(); return true;
+    default: return false;
+  }
+  if (['ing-add', 'ing-free'].includes(action)) { draft.query = ''; document.getElementById('ing-search').value = ''; }
+  renderCustomAll();
+  return true;
+}
+
+// Recept op de detailpagina (met smaakhints, E8).
+function recipeCard(jar) {
+  const r = jar.recipe;
+  const main = mainItem(r.items);
+  return `<section class="card">
+    <h2>${t('recipeTitle')}</h2>
+    <p class="small"><b>${t('cMethod')}:</b> ${t(`method_${r.method}`)}${r.waterG ? ` · ${t('fWater')}: ${r.waterG} g` : ''}</p>
+    <ul class="ing-list">${r.items.map((i) => `<li><span class="swatch" style="background:${i.color}"></span><div class="grow"><b>${esc(tl(i.name))}</b>${i === main ? ` <span class="pill">${t('cMain')}</span>` : ''}<small class="block muted">${seasonLabel(i)}</small></div><span class="tabnum">${i.weightG} g</span></li>`).join('')}</ul>
+    ${r.spices.length ? `<ul class="ing-list">${r.spices.map((x) => `<li><span class="swatch" style="background:${x.color}"></span><div class="grow"><b>${esc(tl(x.name))}</b>${x.amount ? ` · ${esc(x.amount)}` : ''}${x.hint ? `<small class="block muted">💡 ${esc(tl(x.hint))}</small>` : ''}</div></li>`).join('')}</ul>` : ''}
+  </section>`;
 }
 
 // ---------- Dialogen ----------
@@ -619,7 +932,7 @@ function dialogLog(jar, kind) {
 
 function dialogHarvest(jar, rating = null) {
   const bb = Date.now() + jar.fridgeDays * DAY;
-  openModal(`<div class="center">${character(jar.species, 'retired', { size: 100 })}</div>
+  openModal(`<div class="center">${character(jar.species, 'retired', { size: 100, avatar: jar.avatar })}</div>
     <h2>🧺 ${t('harvestTitle')}: ${esc(jar.name)}</h2>
     <p>${t('harvestText')} ${t('bestBefore', { d: fmtDate(bb) })}.</p>
     <p>${t('rating')}</p>${ratingInput('rating', rating || 0)}
@@ -658,7 +971,7 @@ function dialogEdit(jar) {
 }
 
 function dialogSaveTemplate(jar) {
-  const base = tplById(jar.templateId) || TEMPLATES[0];
+  const base = jarTpl(jar);
   openModal(`<h2>💾 ${t('saveTemplate')}</h2>
     <label>${t('templateName')}<input name="name" required maxlength="40" value="${esc(`${jar.name} (${tl(base.name)})`)}"></label>
     <div class="actions">${cancelBtn()}<button class="btn primary" value="ok">${t('save')}</button></div>`,
@@ -749,7 +1062,12 @@ function demoJars(now = Date.now()) {
   const old1 = harvest(mk('sauerkraut', 'Kapitein Kraut', 40 * 24, { ambientTemp: 18 }), now - 12 * DAY, 5);
   old1.log.unshift({ id: 'd1', at: iso(now - 14 * DAY), kind: 'taste', taste: 5, text: getLang() === 'nl' ? 'Knapperig en fris zuur, perfect.' : 'Crunchy and fresh, perfect.' });
   const old2 = harvest(mk('kimchi', 'Gochu Guus', 9 * 24, { ambientTemp: 23 }), now - 5 * DAY, 3);
-  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, old1, old2];
+  const items = [makeItem('redcabbage', 800), makeItem('apple', 150)];
+  const spices = [SPICES.find((x) => x.id === 'juniper'), SPICES.find((x) => x.id === 'cinnamon')];
+  const plan = { ...deriveRecipe(items) };
+  const own = jarFromTemplate(recipeTemplate({ items, spices, plan, avatar: makeAvatar(items, spices, 3), name: 'Baron Rode' }), { name: 'Baron Rode', startedAt: now - 2 * DAY, saltPct: plan.saltPct, vegG: 950, waterG: 0 }, now);
+  own.burps = [iso(now - 26 * HOUR), iso(now - 3 * HOUR)];
+  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, own, old1, old2];
 }
 
 // Event-delegatie voor alle knoppen met data-action.
@@ -758,6 +1076,7 @@ document.addEventListener('click', async (e) => {
   if (!el || el.tagName === 'INPUT') return;
   const { action, id } = el.dataset;
   const jar = id ? jarById(id) : null;
+  if (draft && route().parts[0] === 'custom' && customAction(action, el)) return;
   switch (action) {
     case 'burp': doBurp(id); break;
     case 'taste': dialogTaste(jar); break;

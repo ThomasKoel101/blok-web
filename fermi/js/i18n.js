@@ -92,6 +92,22 @@ const STRINGS = {
     welcomeText: 'Elk fermentatiepotje wordt een karakter dat laat zien wat het nodig heeft: burpen, proeven, oogsten. Niks gaat dood; fermentatie is vergevingsgezind, Fermi ook.',
     welcomeOk: 'Begrepen, aan de slag', installHint: 'Tip: voeg Fermi toe aan je beginscherm.',
     ago: '{t} geleden', now: 'nu', never: 'nog niet', of: 'van',
+    customTitle: 'Eigen ferment', customCardSub: 'Kies zelf groente en specerijen; Fermi maakt het karakter',
+    cVeg: 'Groenten', cVegSearch: 'Zoek een groente', cVegHint: 'De zwaarste groente wordt de hoofdgroente.',
+    cMain: 'Hoofdgroente', cWeight: 'Gewicht (g)', cAddFree: '“{name}” toevoegen als', cRemove: 'Verwijderen', cNoMatch: 'Staat je groente er niet bij? Kies de soort:',
+    cat_cabbage: 'Kool', cat_root: 'Knol / wortel', cat_fruit: 'Vrucht', cat_leaf: 'Blad', cat_legume: 'Peulvrucht',
+    hard_1: 'zacht', hard_2: 'stevig', hard_3: 'hard', sugar_0: 'weinig suiker', sugar_1: 'wat suiker', sugar_2: 'suikerrijk',
+    seasonNow: 'Nu in seizoen', seasonOut: 'Buiten seizoen ({range})', seasonAll: 'Hele jaar', seasonUnknown: 'Seizoen onbekend',
+    cSpices: 'Specerijen en kruiden', cSpiceFree: 'Eigen specerij of kruid', cAdd: 'Toevoegen', cAmount: 'Hoeveelheid (optioneel)',
+    cPlan: 'Voorstel', cPlanHint: 'Afgeleid uit je groenten. Pas gerust alles aan.', cMethod: 'Methode',
+    method_dry: 'Droog zouten', method_brine: 'Pekel', methodWhy_dry: 'Kool en bladgroente trekken met zout hun eigen vocht en maken zo hun eigen pekel.',
+    methodWhy_brine: 'Harde groente en vruchten geven te weinig vocht af; die gaan onder een pekel.',
+    cBurpEvery: 'Burpen elke (uur)', cBurpNone: '0 = niet burpen', cReset: 'Herstel voorstel', cTotal: 'Totaal groente: {g} g',
+    warnSaltLow: 'Zout onder 2%: te weinig om ongewenste bacteriën tegen te houden. Gebruik minstens 2%.',
+    warnFruit: 'Veel zoet fruit ({p}% van het gewicht): de suikers kunnen alcohol en gist geven. Houd het onder ongeveer 25% en proef vaker.',
+    warnStarch: 'Zetmeelrijke groente ({names}) wordt snel zacht en kan papperig worden. Kort fermenteren en vroeg proeven.',
+    cAvatar: 'Karakter', cRegen: 'Opnieuw genereren', cColor: 'Kleur', cAvatarHint: 'Vorm en kleur komen van je hoofdgroente, de strepen van de tweede groente en de stipjes van je specerijen.',
+    cStart: 'Start', cNeedVeg: 'Voeg eerst minstens één groente toe.', recipeTitle: 'Recept', dexOwn: 'Eigen creaties', cRestart: 'Opnieuw beginnen',
   },
   en: {
     appTagline: 'Every jar a character',
@@ -175,6 +191,22 @@ const STRINGS = {
     welcomeText: 'Every fermentation jar becomes a character that shows what it needs: burping, tasting, harvesting. Nothing dies; fermentation is forgiving, and so is Fermi.',
     welcomeOk: 'Got it, let\'s go', installHint: 'Tip: add Fermi to your home screen.',
     ago: '{t} ago', now: 'now', never: 'not yet', of: 'of',
+    customTitle: 'Own ferment', customCardSub: 'Pick your own vegetables and spices; Fermi makes the character',
+    cVeg: 'Vegetables', cVegSearch: 'Search a vegetable', cVegHint: 'The heaviest vegetable becomes the main one.',
+    cMain: 'Main vegetable', cWeight: 'Weight (g)', cAddFree: 'Add “{name}” as', cRemove: 'Remove', cNoMatch: 'Vegetable not listed? Pick its kind:',
+    cat_cabbage: 'Cabbage', cat_root: 'Root / tuber', cat_fruit: 'Fruit', cat_leaf: 'Leaf', cat_legume: 'Legume',
+    hard_1: 'soft', hard_2: 'firm', hard_3: 'hard', sugar_0: 'low sugar', sugar_1: 'some sugar', sugar_2: 'sugary',
+    seasonNow: 'In season now', seasonOut: 'Out of season ({range})', seasonAll: 'All year', seasonUnknown: 'Season unknown',
+    cSpices: 'Spices and herbs', cSpiceFree: 'Your own spice or herb', cAdd: 'Add', cAmount: 'Amount (optional)',
+    cPlan: 'Proposal', cPlanHint: 'Derived from your vegetables. Feel free to change anything.', cMethod: 'Method',
+    method_dry: 'Dry salting', method_brine: 'Brine', methodWhy_dry: 'Cabbage and leafy greens release their own juice with salt and make their own brine.',
+    methodWhy_brine: 'Hard vegetables and fruit release too little juice, so they go under a brine.',
+    cBurpEvery: 'Burp every (hours)', cBurpNone: '0 = no burping', cReset: 'Restore proposal', cTotal: 'Total vegetables: {g} g',
+    warnSaltLow: 'Salt below 2%: too little to hold back unwanted bacteria. Use at least 2%.',
+    warnFruit: 'Lots of sweet fruit ({p}% of the weight): the sugars can turn into alcohol and yeast. Keep it under about 25% and taste more often.',
+    warnStarch: 'Starchy vegetables ({names}) soften quickly and can turn mushy. Ferment briefly and taste early.',
+    cAvatar: 'Character', cRegen: 'Generate again', cColor: 'Colour', cAvatarHint: 'Shape and colour come from your main vegetable, the stripes from the second one and the dots from your spices.',
+    cStart: 'Start', cNeedVeg: 'Add at least one vegetable first.', recipeTitle: 'Recipe', dexOwn: 'Own creations', cRestart: 'Start over',
   },
 };
 
@@ -229,4 +261,8 @@ export function fmtWhen(ms, now = Date.now()) {
   const tomorrow = new Date(now + 864e5).toDateString() === d.toDateString();
   if (tomorrow) return `${lang === 'nl' ? 'morgen' : 'tomorrow'} ${fmtTime(ms)}`;
   return fmtDate(ms, Math.abs(ms - now) < 7 * 864e5);
+}
+
+export function monthName(m) {
+  return new Date(2026, m - 1, 1).toLocaleString(lang === 'nl' ? 'nl-NL' : 'en-GB', { month: 'short' }).replace('.', '');
 }

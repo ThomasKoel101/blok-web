@@ -1,8 +1,8 @@
 // Service worker: offline-cache (N1) en afhandeling van aangetikte meldingen.
-const CACHE = 'fermi-v1';
+const CACHE = 'fermi-v2';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
-  'js/app.js', 'js/logic.js', 'js/templates.js', 'js/characters.js', 'js/i18n.js', 'js/store.js', 'js/notify.js',
+  'js/app.js', 'js/logic.js', 'js/templates.js', 'js/characters.js', 'js/i18n.js', 'js/store.js', 'js/notify.js', 'js/ingredients.js',
 ];
 
 self.addEventListener('install', (e) => {
