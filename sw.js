@@ -2,7 +2,7 @@
 // en handelt aangetikte meldingen af.
 // Strategie: app-shell vooraf cachen; daarna "stale-while-revalidate": direct uit de
 // cache (snel en offline), en op de achtergrond de nieuwste versie ophalen.
-const CACHE = 'fermi-v5';
+const CACHE = 'fermi-v6';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.json', 'icon.svg',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
@@ -10,7 +10,8 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' slaat de HTTP-cache van de browser over, zodat een update echt nieuwe bestanden ophaalt.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -25,7 +26,7 @@ self.addEventListener('fetch', (e) => {
     // Navigaties (openen vanaf het beginscherm) krijgen altijd de app-shell.
     const key = e.request.mode === 'navigate' ? 'index.html' : e.request;
     const cached = await cache.match(key, { ignoreSearch: true });
-    const network = fetch(e.request)
+    const network = fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) cache.put(key, res.clone());
         return res;
