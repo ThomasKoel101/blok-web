@@ -100,6 +100,7 @@ const STRINGS = {
     task_feed: 'Voeden', task_stir: 'Roeren', doFeed: 'Gevoerd', doStir: 'Geroerd',
     notifBody_feed: '{name} heeft honger: tijd om te voeden.', notifBody_stir: '{name} wil geroerd worden.',
     keepTemp: 'Houd het op ongeveer {t} °C. Bij deze temperatuur is de duur vast.', dexIntroWorld: 'Per werelddeel, oogst een ferment om het te ontgrendelen.',
+    turnOn: 'Aanzetten', sumNow: 'Nu', sumLater: 'Straks', sumCalm: 'Rustig',
     tapToRename: 'Tik op de naam om hem aan te passen', saltBig: '{g} g zout', saltFor: 'voor {veg} g groente{water} bij {p}%', saltWaterPart: ' en {w} g water',
     saltEnterWeight: 'Vul het gewicht in, dan rekent Fermi het zout uit.', saltAdvice: 'Advies {def}%, veilig vanaf {min}%',
     planTitle: 'Planning', planReady: 'Klaar in', planRhythm: 'Ritme', planTemp: 'Temperatuur', adjust: 'Aanpassen', moreOptions: 'Meer opties',
@@ -214,6 +215,7 @@ const STRINGS = {
     task_feed: 'Feed', task_stir: 'Stir', doFeed: 'Fed', doStir: 'Stirred',
     notifBody_feed: '{name} is hungry: time to feed.', notifBody_stir: '{name} would like a stir.',
     keepTemp: 'Keep it at about {t} °C. At this temperature the duration is fixed.', dexIntroWorld: 'By continent; harvest a ferment to unlock it.',
+    turnOn: 'Turn on', sumNow: 'Now', sumLater: 'Later', sumCalm: 'Calm',
     tapToRename: 'Tap the name to change it', saltBig: '{g} g salt', saltFor: 'for {veg} g of vegetables{water} at {p}%', saltWaterPart: ' and {w} g of water',
     saltEnterWeight: 'Enter the weight and Fermi works out the salt.', saltAdvice: 'Recommended {def}%, safe from {min}%',
     planTitle: 'Plan', planReady: 'Ready in', planRhythm: 'Rhythm', planTemp: 'Temperature', adjust: 'Adjust', moreOptions: 'More options',
@@ -298,4 +300,9 @@ export function fmtWhen(ms, now = Date.now()) {
   if (day(ms) === day(now + 864e5)) return `${lang === 'nl' ? 'morgen' : 'tomorrow'} ${fmtTime(ms)}`;
   if (Math.abs(ms - now) < 6 * 864e5) return `${d.toLocaleDateString(locale(), { weekday: 'short' }).replace('.', '')} ${fmtTime(ms)}`;
   return fmtShortDate(ms, now);
+}
+
+export function fmtLongDate(ms) {
+  const s = new Date(ms).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
