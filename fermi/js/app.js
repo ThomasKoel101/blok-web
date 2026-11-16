@@ -4,7 +4,7 @@ import {
   tempFactor, harvest, startNextPhase, templateFromJar, fermidex, earnedBadges, burpStreak, toCSV,
 } from './logic.js';
 import { character } from './characters.js';
-import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, fmtShortDate, monthName } from './i18n.js';
+import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, fmtShortDate, fmtLongDate, monthName } from './i18n.js';
 import {
   CATEGORIES, SPICES, searchIngredients, makeItem, customItem, mainItem, deriveRecipe, recipeSalt, recipeWarnings,
   inSeason, seasonRange, makeAvatar, suggestCustomName, recipeTemplate, templateFromRecipeJar, INGREDIENTS,
@@ -127,32 +127,55 @@ const header = (title, back) => `<header class="view-head">${back ? `<a class="b
 function viewToday(now) {
   const active = state.jars.filter((j) => j.status === 'active');
   const streak = burpStreak(state.jars, now);
+  const dateLine = `<p class="eyebrow date-line">${fmtLongDate(now)}</p>`;
   if (!active.length) {
-    return `${header(t('todayTitle'))}
-      <section class="empty">
+    return `${header(t('todayTitle'))}${dateLine}
+      <section class="panel empty">
         <div class="empty-chars">${character('sauerkraut', 'sleepy', { size: 90 })}${character('kimchi', 'curious', { size: 90 })}${character('pickle', 'happy', { size: 90 })}</div>
         <p>${t('todayEmpty')}</p>
         <a class="btn primary big" href="#/new">${t('startFirst')}</a>
       </section>`;
   }
   const { urgent, later, calm } = today(state.jars, now);
-  const card = ({ jar, tasks: ts }, withButtons) => `
-    <article class="card today-card${ts.some((x) => x.urgent) ? ' is-urgent' : ''}">
-      <a class="today-char" href="#/jar/${jar.id}">${jarChar(jar, now, 72)}</a>
-      <div class="today-body">
-        <a href="#/jar/${jar.id}" class="today-name">${esc(jar.name)}</a>
-        <div class="muted small">${esc(tl(jarTpl(jar).name))} · ${t(`mood_${mood(jar, now)}`)}</div>
-        <div class="tasks">${ts.map((x) => taskLine(jar, x, now)).join('')}</div>
-        ${ts.some((x) => x.pressure) ? `<p class="alert" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
-        ${withButtons ? `<div class="actions">${ts.filter((x) => x.type !== 'overdue').map((x) => taskButton(jar, x)).join('')}${ts.some((x) => x.type === 'overdue') ? taskButton(jar, { type: 'taste' }) + taskButton(jar, { type: 'harvest' }) : ''}</div>` : ''}
-      </div>
+  // Maximaal twee knoppen per kaart: de dringendste zorg plus proeven of oogsten.
+  const buttons = (jar, ts) => {
+    const list = [];
+    const care = ts.find((x) => CARE.includes(x.type));
+    if (care) list.push({ type: care.type, primary: true });
+    if (ts.some((x) => x.type === 'harvest' || x.type === 'overdue')) list.push({ type: 'harvest', primary: !care });
+    if (ts.some((x) => x.type === 'taste' || x.type === 'overdue')) list.push({ type: 'taste', primary: !list.length });
+    return list.slice(0, 2).map((x) => {
+      if (CARE.includes(x.type)) return `<button class="btn primary" data-action="burp" data-id="${jar.id}">${careIcon(x.type)} ${verb(x.type)}</button>`;
+      return `<button class="btn${x.primary ? ' primary' : ''}" data-action="${x.type}" data-id="${jar.id}">${x.type === 'taste' ? '🥄' : '🧺'} ${t(x.type === 'taste' ? 'doTaste' : 'doHarvest')}</button>`;
+    }).join('');
+  };
+  const card = ({ jar, tasks: ts }) => `
+    <article class="task-card${ts.some((x) => x.urgent) ? ' urgent' : ''}">
+      <a class="task-top" href="#/jar/${jar.id}">
+        ${jarChar(jar, now, 64)}
+        <span class="task-who"><span class="task-name">${esc(jar.name)}</span><span class="task-sub">${esc(tl(jarTpl(jar).name))}</span></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </a>
+      <div class="tasks">${ts.map((x) => taskLine(jar, x, now)).join('')}</div>
+      ${ts.some((x) => x.pressure) ? `<p class="note warn" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
+      <div class="task-actions">${buttons(jar, ts)}</div>
     </article>`;
-  return `${header(t('todayTitle'))}
-    ${streak >= 2 ? `<p class="streak">🔥 ${t('streak', { n: streak })}</p>` : ''}
-    ${urgent.length ? `<h2>${t('todayNeeds')} <span class="count">${urgent.length}</span></h2>${urgent.map((x) => card(x, true)).join('')}`
-      : `<section class="all-good">${character('sun', 'proud', { size: 80 })}<p>${t('todayAllGood')}</p></section>`}
-    ${later.length ? `<h2>${t('todayLater')}</h2>${later.map((x) => card(x, false)).join('')}` : ''}
-    ${calm.length ? `<h2>${t('todayCalm')}</h2><div class="mini-row">${calm.map(({ jar }) => `<a class="mini" href="#/jar/${jar.id}">${jarChar(jar, now, 56)}<span>${esc(jar.name)}</span><small>${stageText(jar, now)}</small></a>`).join('')}</div>` : ''}`;
+  const listRow = ({ jar, tasks: ts }) => `<a class="list-row" href="#/jar/${jar.id}">
+      ${jarChar(jar, now, 44)}
+      <span class="list-main"><span class="list-title">${esc(jar.name)}</span><span class="list-sub">${ts.length ? ts.map((x) => `${taskLabel(x.type)} · ${fmtWhen(x.dueAt, now)}`).join(', ') : stageText(jar, now)}</span></span>
+      <span class="chev" aria-hidden="true">›</span>
+    </a>`;
+  return `${header(t('todayTitle'))}${dateLine}
+    <div class="stat-row summary">
+      <div class="stat${urgent.length ? ' late' : ''}"><span class="stat-label">${t('sumNow')}</span><span class="stat-value big">${urgent.length}</span></div>
+      <div class="stat"><span class="stat-label">${t('sumLater')}</span><span class="stat-value big">${later.length}</span></div>
+      <div class="stat"><span class="stat-label">${t('sumCalm')}</span><span class="stat-value big">${calm.length}</span></div>
+    </div>
+    ${streak >= 2 ? `<p class="note">🔥 ${t('streak', { n: streak })}</p>` : ''}
+    ${urgent.length ? `<h2>${t('todayNeeds')}</h2><div class="card-stack">${urgent.map(card).join('')}</div>`
+      : `<section class="panel all-good">${character('sun', 'proud', { size: 80 })}<p>${t('todayAllGood')}</p></section>`}
+    ${later.length ? `<h2>${t('todayLater')}</h2><nav class="panel list">${later.map(listRow).join('')}</nav>` : ''}
+    ${calm.length ? `<h2>${t('todayCalm')}</h2><nav class="panel list">${calm.map(listRow).join('')}</nav>` : ''}`;
 }
 
 // ---------- Plank (T3) ----------
@@ -637,47 +660,49 @@ function viewSafety(q) {
 function viewMore() {
   const perm = notify.permission();
   const s = state.settings;
+  const linkRow = (href, icon, label) => `<a class="list-row" href="${href}"><span class="list-icon" aria-hidden="true">${icon}</span><span class="list-main"><span class="list-title">${label}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
+  const btnRow = (action, icon, label) => `<button class="list-row" type="button" data-action="${action}"><span class="list-icon" aria-hidden="true">${icon}</span><span class="list-main"><span class="list-title">${label}</span></span><span class="chev" aria-hidden="true">›</span></button>`;
   return `${header(t('moreTitle'))}
-    <nav class="more-links">
-      <a class="card link-card" href="#/archive">📦 ${t('archiveTitle')}</a>
-      <a class="card link-card" href="#/safety">🔍 ${t('safetyTitle')}</a>
+    <nav class="panel list">
+      ${linkRow('#/archive', '📦', t('archiveTitle'))}
+      ${linkRow('#/safety', '🔍', t('safetyTitle'))}
     </nav>
-    ${swReady || isStandalone() ? `<section class="card">
-      <h2>📲 ${t('installTitle')}</h2>
+    ${swReady || isStandalone() ? `<section class="panel">
+      <h2 class="panel-title">📲 ${t('installTitle')}</h2>
       ${isStandalone() ? `<p>✅ ${t('installed')}</p>`
-        : installPrompt ? `<button class="btn primary" data-action="install">${t('installApp')}</button>`
-        : `<p class="small">${/iphone|ipad|ipod/i.test(navigator.userAgent) ? t('installIos') : t('installOther')}</p>`}
+        : installPrompt ? `<button class="btn primary big" data-action="install">${t('installApp')}</button>`
+        : `<p class="note">${/iphone|ipad|ipod/i.test(navigator.userAgent) ? t('installIos') : t('installOther')}</p>`}
     </section>` : ''}
-    <section class="card">
-      <h2>${t('settingsTitle')}</h2>
-      <label>${t('language')}<select data-setting="lang">${LANGS.map((l) => `<option value="${l}"${l === s.lang ? ' selected' : ''}>${l === 'nl' ? 'Nederlands' : 'English'}</option>`).join('')}</select></label>
-      <h3>${t('notifications')}</h3>
-      ${perm === 'granted' ? `<p>✅ ${t('notifOn')} <button class="btn small" data-action="notif-test">${t('notifTest')}</button></p>`
-        : perm === 'denied' ? `<p>${t('notifDenied')}</p>` : perm === 'unsupported' ? `<p>${t('notifUnsupported')}</p>`
-        : `<button class="btn primary" data-action="notif-enable">🔔 ${t('notifEnable')}</button>`}
-      <p class="muted small">${t('notifHow')}</p>
-      <fieldset><legend>${t('quietHours')}</legend>
-        <div class="grid2">
-          <label>${t('quietFrom')}<input type="time" data-setting="quietStart" value="${s.quietStart}"></label>
-          <label>${t('quietTo')}<input type="time" data-setting="quietEnd" value="${s.quietEnd}"></label>
-        </div>
-        <label class="check"><input type="checkbox" data-setting="urgentInQuiet"${s.urgentInQuiet ? ' checked' : ''}> ${t('urgentInQuiet')}</label>
-      </fieldset>
-    </section>
-    <section class="card">
-      <h2>${t('data')}</h2>
-      <div class="actions">
-        <button class="btn" data-action="export-csv">📄 ${t('exportCsv')}</button>
-        <button class="btn" data-action="export-json">💾 ${t('exportJson')}</button>
-        <label class="btn">📥 ${t('importJson')}<input type="file" accept="application/json,.json" data-action="import" hidden></label>
-        <button class="btn" data-action="demo">🧪 ${t('loadDemo')}</button>
+    <h2>${t('settingsTitle')}</h2>
+    <section class="panel list">
+      <label class="list-row"><span class="list-icon" aria-hidden="true">🌐</span><span class="list-main"><span class="list-title">${t('language')}</span></span>
+        <select class="inline-select" data-setting="lang">${LANGS.map((l) => `<option value="${l}"${l === s.lang ? ' selected' : ''}>${l === 'nl' ? 'Nederlands' : 'English'}</option>`).join('')}</select></label>
+      <div class="list-row static"><span class="list-icon" aria-hidden="true">🔔</span>
+        <span class="list-main"><span class="list-title">${t('notifications')}</span><span class="list-sub">${perm === 'granted' ? t('notifOn') : perm === 'denied' ? t('notifDenied') : perm === 'unsupported' ? t('notifUnsupported') : t('notifHow')}</span></span>
+        ${perm === 'granted' ? `<button class="btn small ghost" data-action="notif-test">${t('notifTest')}</button>` : perm === 'default' ? `<button class="btn small primary" data-action="notif-enable">${t('turnOn')}</button>` : ''}
       </div>
+      <div class="list-row static column"><span class="list-row-head"><span class="list-icon" aria-hidden="true">🌙</span><span class="list-title">${t('quietHours')}</span></span>
+        <div class="field-grid">
+          ${field(t('quietFrom'), `<input type="time" data-setting="quietStart" value="${s.quietStart}">`)}
+          ${field(t('quietTo'), `<input type="time" data-setting="quietEnd" value="${s.quietEnd}">`)}
+        </div>
+      </div>
+      <label class="list-row"><span class="list-icon" aria-hidden="true">⚠️</span><span class="list-main"><span class="list-title">${t('urgentInQuiet')}</span></span>
+        <span class="switch"><input type="checkbox" role="switch" data-setting="urgentInQuiet"${s.urgentInQuiet ? ' checked' : ''}><span aria-hidden="true"></span></span></label>
     </section>
-    <section class="card">
-      <h2>${t('about')}</h2>
+    <p class="field-hint">${t('notifHow')}</p>
+    <h2>${t('data')}</h2>
+    <section class="panel list">
+      ${btnRow('export-csv', '📄', t('exportCsv'))}
+      ${btnRow('export-json', '💾', t('exportJson'))}
+      <label class="list-row"><span class="list-icon" aria-hidden="true">📥</span><span class="list-main"><span class="list-title">${t('importJson')}</span></span><span class="chev" aria-hidden="true">›</span><input type="file" accept="application/json,.json" data-action="import" class="sr"></label>
+      ${btnRow('demo', '🧪', t('loadDemo'))}
+    </section>
+    <h2>${t('about')}</h2>
+    <section class="panel">
       <p>${t('welcomeText')}</p>
-      <p class="disclaimer">${t('disclaimer')}</p>
-      <p class="muted small">${t('templateDisclaimer')}</p>
+      <p class="note warn">${t('disclaimer')}</p>
+      <p class="field-hint">${t('templateDisclaimer')}</p>
     </section>`;
 }
 
@@ -740,36 +765,36 @@ const itemMeta = (i) => `${t(`cat_${i.category}`)} · ${t(`hard_${i.hardness}`)}
 function viewCustom(q, now) {
   if (!draft || (q.get('from') && draft.fromId !== q.get('from'))) draft = newDraft(q.get('from') ? jarById(q.get('from')) : null);
   return `${header(t('customTitle'), '#/new')}
-    <p class="muted">${t('step', { n: 2 })} · ${t('customCardSub')}</p>
-    <form id="custom-form" class="form" novalidate>
-      <section class="card">
-        <h2>${t('cVeg')}</h2>
-        <label for="ing-search">${t('cVegSearch')}</label>
-        <input id="ing-search" type="search" autocomplete="off" value="${esc(draft.query)}" placeholder="${getLang() === 'nl' ? 'bijv. rode kool, wortel, appel' : 'e.g. red cabbage, carrot, apple'}">
+    <p class="eyebrow">${t('customCardSub')}</p>
+    <form id="custom-form" class="form create" novalidate>
+      <section class="panel">
+        <h2 class="panel-title">🥕 ${t('cVeg')}</h2>
+        <label class="sr" for="ing-search">${t('cVegSearch')}</label>
+        <input id="ing-search" type="search" autocomplete="off" value="${esc(draft.query)}" placeholder="🔍 ${getLang() === 'nl' ? 'Zoek, bijv. rode kool, wortel, appel' : 'Search, e.g. red cabbage, carrot, apple'}">
         <div id="ing-suggest" class="suggest"></div>
-        <p class="muted small">${t('cVegHint')}</p>
-        <ul id="ing-list" class="ing-list"></ul>
+        <ul id="ing-list" class="ing-rows"></ul>
+        <p class="field-hint">${t('cVegHint')}</p>
       </section>
-      <section class="card">
-        <h2>${t('cSpices')}</h2>
+      <section class="panel">
+        <h2 class="panel-title">🌿 ${t('cSpices')}</h2>
         <div id="spice-chips" class="filters wrap"></div>
-        <div class="row add-row"><input id="spice-free" placeholder="${t('cSpiceFree')}" aria-label="${t('cSpiceFree')}"><button type="button" class="btn" data-action="spice-free">${t('cAdd')}</button></div>
-        <ul id="spice-list" class="ing-list"></ul>
+        <div class="add-row"><input id="spice-free" placeholder="${t('cSpiceFree')}" aria-label="${t('cSpiceFree')}"><button type="button" class="btn" data-action="spice-free">${t('cAdd')}</button></div>
+        <ul id="spice-list" class="ing-rows"></ul>
       </section>
-      <section class="card" id="plan-box"></section>
-      <section class="card" id="avatar-box"></section>
-      <section class="card">
-        <h2>${t('cStart')}</h2>
-        <div class="grid-auto">
-          <label>${t('fStart')}<input type="datetime-local" id="c-start" value="${toLocalInput(now)}"></label>
-          <label>${t('fTemp')}<input type="number" id="c-temp" min="5" max="40" step="0.5" value="${esc(draft.temp)}" inputmode="decimal"></label>
-          <label>${t('fVolume')}<input type="number" id="c-volume" min="0.05" step="0.05" value="${esc(draft.volumeL)}" inputmode="decimal"></label>
+      <section class="panel" id="plan-box"></section>
+      <section class="panel" id="avatar-box"></section>
+      <section class="panel">
+        <h2 class="panel-title">🗓️ ${t('cStart')}</h2>
+        <div class="field-grid">
+          ${field(t('fStart'), `<input type="datetime-local" id="c-start" value="${toLocalInput(now)}">`)}
+          ${field(t('planTemp'), `<input type="number" id="c-temp" min="5" max="40" step="0.5" value="${esc(draft.temp)}" inputmode="decimal">`, '°C')}
+          ${field(t('volume'), `<input type="number" id="c-volume" min="0.05" step="0.05" value="${esc(draft.volumeL)}" inputmode="decimal">`, 'L')}
         </div>
-        <p class="tip">🪨 ${t('vegTip')}</p>
+        <p class="note">🪨 ${t('vegTipShort')}</p>
       </section>
       <div id="custom-error"></div>
-      <button class="btn primary big" type="submit">${t('create')}</button>
       <p class="center"><button type="button" class="btn danger small" data-action="custom-restart">${t('cRestart')}</button></p>
+      <div class="sticky-cta"><button class="btn primary big" type="submit">${t('create')}</button></div>
     </form>`;
 }
 
@@ -780,8 +805,8 @@ function renderSuggest() {
   if (!q) { box.innerHTML = ''; return; }
   const hits = searchIngredients(q);
   box.innerHTML = `${hits.map((i) => `<button type="button" class="suggest-item" data-action="ing-add" data-ing="${i.id}">
-      <span class="swatch" style="background:${i.color}"></span><span><b>${esc(tl(i.name))}</b><small>${itemMeta(i)} · ${seasonLabel(i)}</small></span></button>`).join('')}
-    <div class="free-add"><span class="muted small">${hits.length ? t('cNoMatch') : t('cAddFree', { name: esc(q) })}</span>
+      <span class="swatch" style="background:${i.color}"></span><span><b>${esc(tl(i.name))}</b><small>${itemMeta(i)} · ${seasonLabel(i)}</small></span><span class="plus" aria-hidden="true">＋</span></button>`).join('')}
+    <div class="free-add"><span class="field-hint">${hits.length ? t('cNoMatch') : t('cAddFree', { name: esc(q) })}</span>
       <div class="filters wrap">${CATEGORIES.map((c) => `<button type="button" class="chip" data-action="ing-free" data-cat="${c}">${t(`cat_${c}`)}</button>`).join('')}</div></div>`;
 }
 
@@ -789,11 +814,11 @@ function renderIngredients() {
   const list = document.getElementById('ing-list');
   if (!list) return;
   const main = mainItem(draft.items);
-  list.innerHTML = draft.items.map((i, idx) => `<li>
-      <span class="swatch" style="background:${i.color}"></span>
-      <div class="grow"><b>${esc(tl(i.name))}</b>${i === main ? ` <span class="pill">${t('cMain')}</span>` : ''}<small class="block muted">${itemMeta(i)} · ${seasonLabel(i)}</small></div>
-      <label class="weight">${t('cWeight')}<input type="number" min="0" step="10" inputmode="numeric" data-ing-weight="${idx}" value="${i.weightG || ''}"></label>
-      <button type="button" class="btn icon small" data-action="ing-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(i.name))}">✕</button>
+  list.innerHTML = draft.items.map((i, idx) => `<li class="ing-row">
+      <span class="swatch big" style="background:${i.color}"></span>
+      <div class="ing-info"><span class="ing-name">${esc(tl(i.name))}${i === main ? ` <span class="pill">${t('cMain')}</span>` : ''}</span><span class="list-sub">${t(`cat_${i.category}`)} · ${seasonLabel(i)}</span></div>
+      <span class="input-wrap has-unit ing-weight"><input type="number" min="0" step="10" inputmode="numeric" data-ing-weight="${idx}" value="${i.weightG || ''}" aria-label="${t('cWeight')} ${esc(tl(i.name))}"><span class="unit">g</span></span>
+      <button type="button" class="icon-btn" data-action="ing-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(i.name))}">✕</button>
     </li>`).join('');
 }
 
@@ -802,11 +827,11 @@ function renderSpices() {
   if (!chips) return;
   const chosen = new Set(draft.spices.map((x) => x.id));
   chips.innerHTML = SPICES.map((x) => `<button type="button" class="chip${chosen.has(x.id) ? ' on' : ''}" aria-pressed="${chosen.has(x.id)}" data-action="spice-toggle" data-spice="${x.id}">${esc(tl(x.name))}</button>`).join('');
-  document.getElementById('spice-list').innerHTML = draft.spices.map((x, idx) => `<li>
-      <span class="swatch" style="background:${x.color}"></span>
-      <div class="grow"><b>${esc(tl(x.name))}</b>${x.hint ? `<small class="block muted">💡 ${esc(tl(x.hint))}</small>` : ''}</div>
-      <label class="weight">${t('cAmount')}<input data-spice-amount="${idx}" value="${esc(x.amount || '')}" placeholder="${getLang() === 'nl' ? 'bijv. 1 tl' : 'e.g. 1 tsp'}"></label>
-      <button type="button" class="btn icon small" data-action="spice-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(x.name))}">✕</button>
+  document.getElementById('spice-list').innerHTML = draft.spices.map((x, idx) => `<li class="ing-row">
+      <span class="swatch big" style="background:${x.color}"></span>
+      <div class="ing-info"><span class="ing-name">${esc(tl(x.name))}</span>${x.hint ? `<span class="list-sub">💡 ${esc(tl(x.hint))}</span>` : ''}</div>
+      <input class="amount" data-spice-amount="${idx}" value="${esc(x.amount || '')}" placeholder="${getLang() === 'nl' ? 'bijv. 1 tl' : 'e.g. 1 tsp'}" aria-label="${t('cAmount')}">
+      <button type="button" class="icon-btn" data-action="spice-remove" data-idx="${idx}" aria-label="${t('cRemove')} ${esc(tl(x.name))}">✕</button>
     </li>`).join('');
 }
 
@@ -814,19 +839,19 @@ function renderPlan() {
   const box = document.getElementById('plan-box');
   if (!box) return;
   const p = effectivePlan();
-  if (!p) { box.innerHTML = `<h2>${t('cPlan')}</h2><p class="muted">${t('cNeedVeg')}</p>`; return; }
-  box.innerHTML = `<h2>${t('cPlan')}</h2>
-    <p class="muted small">${t('cPlanHint')}</p>
-    <div class="method-toggle" role="radiogroup" aria-label="${t('cMethod')}">
-      ${['dry', 'brine'].map((m) => `<label class="chip${p.method === m ? ' on' : ''}"><input type="radio" name="c-method" value="${m}" data-plan="method"${p.method === m ? ' checked' : ''}> ${t(`method_${m}`)}</label>`).join('')}
+  if (!p) { box.innerHTML = `<h2 class="panel-title">🧂 ${t('cPlan')}</h2><p class="field-hint">${t('cNeedVeg')}</p>`; return; }
+  box.innerHTML = `<div class="panel-head"><h2 class="panel-title">🧂 ${t('cPlan')}</h2><span id="plan-reset-slot"></span></div>
+    <div class="segmented" role="radiogroup" aria-label="${t('cMethod')}">
+      ${['dry', 'brine'].map((m) => `<label class="${p.method === m ? 'on' : ''}"><input type="radio" name="c-method" value="${m}" data-plan="method"${p.method === m ? ' checked' : ''}>${t(`method_${m}`)}</label>`).join('')}
     </div>
-    <p class="small">${t(`methodWhy_${p.method}`)}</p>
-    <div class="grid3">
-      <label>${t('fSalt')}<input type="number" min="0" max="15" step="0.1" data-plan="saltPct" value="${p.saltPct}" inputmode="decimal"></label>
-      ${p.method === 'brine' ? `<label>${t('fWater')}<input type="number" min="0" step="10" data-plan="waterG" value="${p.waterG}" inputmode="numeric"></label>` : ''}
-      <label>${t('fMinDays')}<input type="number" min="1" data-plan="minD" value="${p.minD}" inputmode="numeric"></label>
-      <label>${t('fMaxDays')}<input type="number" min="1" data-plan="maxD" value="${p.maxD}" inputmode="numeric"></label>
-      <label>${t('cBurpEvery')}<input type="number" min="0" step="1" data-plan="burpEveryH" value="${p.burpEveryH}" inputmode="numeric"><small class="muted">${t('cBurpNone')}</small></label>
+    <p class="field-hint">${t(`methodWhy_${p.method}`)}</p>
+    <div class="salt-result" id="plan-salt"></div>
+    <div class="field-grid">
+      ${field(t('fSalt'), `<input type="number" min="0" max="15" step="0.1" data-plan="saltPct" value="${p.saltPct}" inputmode="decimal">`, '%')}
+      ${p.method === 'brine' ? field(t('fWater').replace(/ \(.*\)/, ''), `<input type="number" min="0" step="10" data-plan="waterG" value="${p.waterG}" inputmode="numeric">`, 'g') : ''}
+      ${field(t('fMinDays'), `<input type="number" min="1" data-plan="minD" value="${p.minD}" inputmode="numeric">`, t('days'))}
+      ${field(t('fMaxDays'), `<input type="number" min="1" data-plan="maxD" value="${p.maxD}" inputmode="numeric">`, t('days'))}
+      ${field(t('cBurpEvery'), `<input type="number" min="0" step="1" data-plan="burpEveryH" value="${p.burpEveryH}" inputmode="numeric">`, t('hours'), t('cBurpNone'))}
     </div>
     <div id="plan-out"></div>`;
   renderPlanOut();
@@ -838,15 +863,17 @@ function renderPlanOut() {
   if (!out || !p) return;
   const temp = Number(document.getElementById('c-temp')?.value || draft.temp);
   const fac = tempFactor(temp);
+  const loc = (n) => Number(n).toLocaleString(getLang());
   const warns = recipeWarnings(draft.items, p).map((w) => {
     if (w.code === 'saltLow') return t('warnSaltLow');
     if (w.code === 'fruit') return t('warnFruit', { p: w.share });
     return t('warnStarch', { names: w.names.map((i) => tl(i.name)).join(', ') });
   });
-  out.innerHTML = `<output class="salt-out">${t('fSaltNeeded', { g: recipeSalt(draft.items, p).toLocaleString(getLang()) })}</output>
-    <p class="muted small">${t('cTotal', { g: p.derived.totalG })} · ${t('fTempEffect', { t: temp, range: fmtRange(p.minD * 24 * fac, Math.max(p.minD, p.maxD) * 24 * fac) })}</p>
-    ${warns.map((w) => `<p class="alert" role="alert">⚠️ ${esc(w)}</p>`).join('')}
-    ${Object.keys(draft.overrides).length ? `<button type="button" class="btn small" data-action="plan-reset">↺ ${t('cReset')}</button>` : ''}`;
+  document.getElementById('plan-salt').innerHTML = `<span class="salt-big">${t('saltBig', { g: loc(recipeSalt(draft.items, p)) })}</span>
+    <span class="salt-sub">${t('saltFor', { veg: loc(p.derived.totalG), water: p.method === 'brine' && p.waterG ? t('saltWaterPart', { w: loc(p.waterG) }) : '', p: loc(p.saltPct) })} · ${t('planReady').toLowerCase()} ${fmtRange(p.minD * 24 * fac, Math.max(p.minD, p.maxD) * 24 * fac)}</span>`;
+  out.innerHTML = warns.map((w) => `<p class="note warn" role="alert">⚠️ ${esc(w)}</p>`).join('');
+  const slot = document.getElementById('plan-reset-slot');
+  if (slot) slot.innerHTML = Object.keys(draft.overrides).length ? `<button type="button" class="btn small ghost" data-action="plan-reset">↺ ${t('cReset')}</button>` : '';
 }
 
 function renderAvatar() {
@@ -854,16 +881,19 @@ function renderAvatar() {
   if (!box) return;
   const av = draftAvatar();
   const p = effectivePlan();
-  box.innerHTML = `<h2>${t('cAvatar')}</h2>
-    <div class="avatar-row">
-      <div id="avatar-preview" class="avatar-preview">${draft.items.length ? character('custom', 'happy', { size: 130, avatar: av, lid: !!p?.burpEveryH, label: draftName() }) : character('custom', 'sleepy', { size: 130, avatar: { shape: 'round', color: '#e6dac6', dots: [] } })}</div>
-      <div class="grow">
-        <label>${t('fName')}<span class="row"><input id="c-name" maxlength="40" value="${esc(draftName())}"><button type="button" class="btn icon" data-action="custom-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button></span></label>
-        <label class="color-label">${t('cColor')}<input type="color" id="c-color" value="${av.color}"></label>
+  box.innerHTML = `<h2 class="panel-title">✨ ${t('cAvatar')}</h2>
+    <div class="create-hero">
+      <div id="avatar-preview" class="avatar-preview">${draft.items.length ? character('custom', 'happy', { size: 140, avatar: av, lid: !!p?.burpEveryH, label: draftName() }) : character('custom', 'sleepy', { size: 140, avatar: { shape: 'round', color: '#e6dac6', dots: [] } })}</div>
+      <div class="name-field">
+        <input id="c-name" maxlength="40" value="${esc(draftName())}" aria-label="${t('fName')}">
+        <button type="button" class="btn icon" data-action="custom-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button>
+      </div>
+      <div class="avatar-tools">
+        <label class="color-chip"><input type="color" id="c-color" value="${av.color}" aria-label="${t('cColor')}"><span>${t('cColor')}</span></label>
         <button type="button" class="btn" data-action="avatar-regen">🔄 ${t('cRegen')}</button>
       </div>
     </div>
-    <p class="muted small">${t('cAvatarHint')}</p>`;
+    <p class="field-hint center">${t('cAvatarHint')}</p>`;
 }
 
 function updatePreview() {
