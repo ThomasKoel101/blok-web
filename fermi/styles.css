@@ -311,3 +311,6 @@ dialog::backdrop { background: rgba(30, 20, 10, .45); }
 .grid-auto label { margin: 6px 0; }
 .ing-list li .grow { min-width: 0; flex: 1 1 110px; }
 .form label.weight, .weight { width: 104px; }
+#tpl-search { margin: 12px 0 4px; }
+.count-muted { font-size: .8rem; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+.tpl-group h2 { margin-top: 18px; }
