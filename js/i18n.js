@@ -100,6 +100,13 @@ const STRINGS = {
     task_feed: 'Voeden', task_stir: 'Roeren', doFeed: 'Gevoerd', doStir: 'Geroerd',
     notifBody_feed: '{name} heeft honger: tijd om te voeden.', notifBody_stir: '{name} wil geroerd worden.',
     keepTemp: 'Houd het op ongeveer {t} °C. Bij deze temperatuur is de duur vast.', dexIntroWorld: 'Per werelddeel, oogst een ferment om het te ontgrendelen.',
+    tapToRename: 'Tik op de naam om hem aan te passen', saltBig: '{g} g zout', saltFor: 'voor {veg} g groente{water} bij {p}%', saltWaterPart: ' en {w} g water',
+    saltEnterWeight: 'Vul het gewicht in, dan rekent Fermi het zout uit.', saltAdvice: 'Advies {def}%, veilig vanaf {min}%',
+    planTitle: 'Planning', planReady: 'Klaar in', planRhythm: 'Ritme', planTemp: 'Temperatuur', adjust: 'Aanpassen', moreOptions: 'Meer opties',
+    everyDay: 'elke dag', everyNDays: 'om de {n} dagen', everyNHours: 'elke {n} uur', everyMonth: 'elke maand', rhythmNone: 'Niet burpen',
+    progressDay: 'Dag {d}', progressHour: 'Uur {d}', progressOf: 'van {min}–{max} {unit}', msStart: 'Start', msTaste: 'Proeven', msHarvest: 'Oogsten',
+    lastLabel: 'Laatst', nextLabel: 'Volgende', lateLabel: 'Te laat', detailsTitle: 'Details', notYet: 'Nog niet',
+    vegTipShort: 'Houd alles onder de pekel met een gewicht. Wat erboven uitsteekt kan schimmelen.',
     customTitle: 'Eigen ferment', customCardSub: 'Kies zelf groente en specerijen; Fermi maakt het karakter',
     cVeg: 'Groenten', cVegSearch: 'Zoek een groente', cVegHint: 'De zwaarste groente wordt de hoofdgroente.',
     cMain: 'Hoofdgroente', cWeight: 'Gewicht (g)', cAddFree: '“{name}” toevoegen als', cRemove: 'Verwijderen', cNoMatch: 'Staat je groente er niet bij? Kies de soort:',
@@ -207,6 +214,13 @@ const STRINGS = {
     task_feed: 'Feed', task_stir: 'Stir', doFeed: 'Fed', doStir: 'Stirred',
     notifBody_feed: '{name} is hungry: time to feed.', notifBody_stir: '{name} would like a stir.',
     keepTemp: 'Keep it at about {t} °C. At this temperature the duration is fixed.', dexIntroWorld: 'By continent; harvest a ferment to unlock it.',
+    tapToRename: 'Tap the name to change it', saltBig: '{g} g salt', saltFor: 'for {veg} g of vegetables{water} at {p}%', saltWaterPart: ' and {w} g of water',
+    saltEnterWeight: 'Enter the weight and Fermi works out the salt.', saltAdvice: 'Recommended {def}%, safe from {min}%',
+    planTitle: 'Plan', planReady: 'Ready in', planRhythm: 'Rhythm', planTemp: 'Temperature', adjust: 'Adjust', moreOptions: 'More options',
+    everyDay: 'every day', everyNDays: 'every {n} days', everyNHours: 'every {n} hours', everyMonth: 'every month', rhythmNone: 'No burping',
+    progressDay: 'Day {d}', progressHour: 'Hour {d}', progressOf: 'of {min}–{max} {unit}', msStart: 'Start', msTaste: 'Taste', msHarvest: 'Harvest',
+    lastLabel: 'Last', nextLabel: 'Next', lateLabel: 'Late by', detailsTitle: 'Details', notYet: 'Not yet',
+    vegTipShort: 'Keep everything under the brine with a weight. Anything sticking out can grow mould.',
     customTitle: 'Own ferment', customCardSub: 'Pick your own vegetables and spices; Fermi makes the character',
     cVeg: 'Vegetables', cVegSearch: 'Search a vegetable', cVegHint: 'The heaviest vegetable becomes the main one.',
     cMain: 'Main vegetable', cWeight: 'Weight (g)', cAddFree: 'Add “{name}” as', cRemove: 'Remove', cNoMatch: 'Vegetable not listed? Pick its kind:',
@@ -268,17 +282,20 @@ export function fmtDate(ms, withTime = false) {
   return new Date(ms).toLocaleString(locale(), o);
 }
 
-// "om 14:00", "morgen 09:00" of een datum.
-export function fmtWhen(ms, now = Date.now()) {
+// Korte, menselijke tijden: "14:00", "gisteren 18:48", "morgen 09:00", "do 18:48" of "13 nov".
+export function fmtShortDate(ms, now = Date.now()) {
   const d = new Date(ms);
-  const n = new Date(now);
-  const sameDay = d.toDateString() === n.toDateString();
-  if (sameDay) return fmtTime(ms);
-  const tomorrow = new Date(now + 864e5).toDateString() === d.toDateString();
-  if (tomorrow) return `${lang === 'nl' ? 'morgen' : 'tomorrow'} ${fmtTime(ms)}`;
-  return fmtDate(ms, Math.abs(ms - now) < 7 * 864e5);
+  const o = { day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== new Date(now).getFullYear()) o.year = 'numeric';
+  return d.toLocaleDateString(locale(), o).replace('.', '');
 }
 
-export function monthName(m) {
-  return new Date(2026, m - 1, 1).toLocaleString(lang === 'nl' ? 'nl-NL' : 'en-GB', { month: 'short' }).replace('.', '');
+export function fmtWhen(ms, now = Date.now()) {
+  const d = new Date(ms);
+  const day = (x) => new Date(x).toDateString();
+  if (day(ms) === day(now)) return fmtTime(ms);
+  if (day(ms) === day(now - 864e5)) return `${lang === 'nl' ? 'gisteren' : 'yesterday'} ${fmtTime(ms)}`;
+  if (day(ms) === day(now + 864e5)) return `${lang === 'nl' ? 'morgen' : 'tomorrow'} ${fmtTime(ms)}`;
+  if (Math.abs(ms - now) < 6 * 864e5) return `${d.toLocaleDateString(locale(), { weekday: 'short' }).replace('.', '')} ${fmtTime(ms)}`;
+  return fmtShortDate(ms, now);
 }

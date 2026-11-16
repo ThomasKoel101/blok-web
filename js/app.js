@@ -4,7 +4,7 @@ import {
   tempFactor, harvest, startNextPhase, templateFromJar, fermidex, earnedBadges, burpStreak, toCSV,
 } from './logic.js';
 import { character } from './characters.js';
-import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, monthName } from './i18n.js';
+import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, fmtShortDate, monthName } from './i18n.js';
 import {
   CATEGORIES, SPICES, searchIngredients, makeItem, customItem, mainItem, deriveRecipe, recipeSalt, recipeWarnings,
   inSeason, seasonRange, makeAvatar, suggestCustomName, recipeTemplate, templateFromRecipeJar, INGREDIENTS,
@@ -103,20 +103,6 @@ function stageText(jar, now) {
   if (jar.status === 'fridge') return t('status_fridge');
   if (jar.status === 'done') return t('status_done');
   return t(`stage_${progress(jar, now).stage}`);
-}
-
-function progressBar(jar, now) {
-  const p = progress(jar, now);
-  const short = p.maxH < 48;
-  const d = short ? Math.floor(p.elapsedH) : Math.floor(p.elapsedH / 24) + 1;
-  const label = short
-    ? t('hourOf', { d, min: Math.round(p.minH), max: Math.round(p.maxH) })
-    : t('dayOf', { d, min: Math.round(p.minH / 24), max: Math.round(p.maxH / 24) });
-  return `<div class="bar stage-${p.stage}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p.pct * 100)}" aria-label="${esc(label)}">
-      <div class="bar-zone" style="left:${p.minPct * 100}%"></div>
-      <div class="bar-fill" style="width:${p.pct * 100}%"></div>
-    </div>
-    <div class="bar-label"><span>${esc(label)}</span><span class="pill stage-${p.stage}">${t(`stage_${p.stage}`)}</span></div>`;
 }
 
 function taskLine(jar, task, now) {
@@ -280,6 +266,20 @@ const toLocalInput = (ms) => {
   return d.toISOString().slice(0, 16);
 };
 
+// Ritme in gewone taal: "Burpen elke dag", "Voeden elke dag", "Niet burpen".
+function everyText(h) {
+  if (h >= 24 * 28) return t('everyMonth');
+  if (h % 24 === 0) return h === 24 ? t('everyDay') : t('everyNDays', { n: h / 24 });
+  return t('everyNHours', { n: h });
+}
+function rhythmShort(x) {
+  if (!x.burp?.length || x.action === 'none') return t('rhythmNone');
+  return `${taskLabel(x.action)} ${everyText(x.burp[0].everyH)}`;
+}
+
+const field = (label, input, unit = '', hint = '') => `<label class="field"><span class="field-label">${label}</span>
+  <span class="input-wrap${unit ? ' has-unit' : ''}">${input}${unit ? `<span class="unit">${unit}</span>` : ''}</span>${hint ? `<span class="field-hint">${hint}</span>` : ''}</label>`;
+
 function viewNewDetails(tplId, q, now) {
   const tpl = tplById(tplId);
   if (!tpl) return viewNewPick(new URLSearchParams());
@@ -297,40 +297,61 @@ function viewNewDetails(tplId, q, now) {
     min: Math.round((src?.minH ?? tpl.minH) / unit),
     max: Math.round((src?.maxH ?? tpl.maxH) / unit),
   };
+  const unitWord = short ? t('hours') : t('days');
   return `${header(t('newTitle'), '#/new')}
-    <p class="muted">${t('step', { n: 2 })} · ${esc(tl(tpl.name))}</p>
-    <form id="new-form" class="form" data-tpl="${tpl.id}" data-unit="${unit}">
-      <div class="new-hero">${character(tpl.species, 'sleepy', { size: 88, lid: tpl.action === 'burp', avatar: tpl.avatar })}
-        <div class="grow"><label>${t('fName')}<span class="row"><input name="name" required maxlength="40" value="${esc(v.name)}"><button type="button" class="btn icon" data-action="shuffle-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button></span></label></div>
-      </div>
-      <div class="grid2">
-        <label>${t('fStart')}<input type="datetime-local" name="startedAt" value="${toLocalInput(now)}" required></label>
-        <label>${t('fVolume')}<input type="number" name="volumeL" min="0.05" step="0.05" value="${esc(v.volumeL)}" inputmode="decimal"></label>
-      </div>
-      ${tpl.salt ? `<fieldset><legend>${t('salt')}</legend>
-        <div class="grid3">
-          <label>${t('fSalt')}<input type="number" name="saltPct" min="0" max="30" step="0.1" value="${esc(v.saltPct)}" inputmode="decimal"></label>
-          <label>${t('fVeg')}<input type="number" name="vegG" min="0" step="10" value="${esc(v.vegG)}" inputmode="numeric"></label>
-          <label>${t('fWater')}<input type="number" name="waterG" min="0" step="10" value="${esc(v.waterG)}" inputmode="numeric"></label>
+    <form id="new-form" class="form create" data-tpl="${tpl.id}" data-unit="${unit}">
+      <section class="create-hero">
+        ${character(tpl.species, 'sleepy', { size: 132, lid: tpl.action === 'burp', avatar: tpl.avatar })}
+        <p class="eyebrow">${esc(tl(tpl.name))} · ${esc(tl(tpl.origin))}</p>
+        <div class="name-field">
+          <input name="name" required maxlength="40" value="${esc(v.name)}" aria-label="${t('fName')}">
+          <button type="button" class="btn icon" data-action="shuffle-name" aria-label="${t('fNameShuffle')}" title="${t('fNameShuffle')}">🎲</button>
         </div>
-        ${tpl.salt.brine ? `<p class="muted small">${t('fBrineHint')}</p>` : ''}
-        <output id="salt-out" class="salt-out"></output>
+        <p class="field-hint center">${t('tapToRename')}</p>
+      </section>
+
+      ${tpl.salt ? `<section class="panel">
+        <h2 class="panel-title">🧂 ${t('salt')}</h2>
+        <div class="salt-result" id="salt-out" aria-live="polite"></div>
+        <div class="field-grid">
+          ${field(t('fVeg').replace(/ \(.*\)/, ''), `<input type="number" name="vegG" min="0" step="10" value="${esc(v.vegG)}" inputmode="numeric" placeholder="1000">`, 'g')}
+          ${tpl.salt.brine ? field(t('fWater').replace(/ \(.*\)/, ''), `<input type="number" name="waterG" min="0" step="10" value="${esc(v.waterG)}" inputmode="numeric" placeholder="800">`, 'g') : `<input type="hidden" name="waterG" value="">`}
+          ${field(t('fSalt'), `<input type="number" name="saltPct" min="0" max="30" step="0.1" value="${esc(v.saltPct)}" inputmode="decimal">`, '%', t('saltAdvice', { def: String(tpl.salt.def).replace('.', getLang() === 'nl' ? ',' : '.'), min: String(tpl.salt.min).replace('.', getLang() === 'nl' ? ',' : '.') }))}
+        </div>
         <div id="salt-warn"></div>
-      </fieldset>` : ''}
-      <fieldset><legend>${t('fDuration')}</legend>
-        <div class="grid3">
-          <label>${t(short ? 'fMinHours' : 'fMinDays')}<input type="number" name="min" min="1" value="${v.min}" required inputmode="numeric"></label>
-          <label>${t(short ? 'fMaxHours' : 'fMaxDays')}<input type="number" name="max" min="1" value="${v.max}" required inputmode="numeric"></label>
-          ${tpl.tempFixed ? `<input type="hidden" name="ambientTemp" value="${tpl.keepTemp}">` : `<label>${t('fTemp')}<input type="number" name="ambientTemp" min="5" max="40" step="0.5" value="${esc(v.temp)}" inputmode="decimal"></label>`}
+      </section>` : ''}
+
+      <section class="panel">
+        <h2 class="panel-title">🗓️ ${t('planTitle')}</h2>
+        <div class="stat-row">
+          <div class="stat"><span class="stat-label">${t('planReady')}</span><span class="stat-value" id="temp-out"></span></div>
+          <div class="stat"><span class="stat-label">${t('planRhythm')}</span><span class="stat-value">${esc(rhythmShort(tpl))}</span></div>
+          <div class="stat"><span class="stat-label">${t('planTemp')}</span><span class="stat-value" id="temp-val">${tpl.tempFixed ? tpl.keepTemp : esc(v.temp)} °C</span></div>
         </div>
-        ${tpl.tempFixed ? `<p class="tip">🌡️ ${t('keepTemp', { t: tpl.keepTemp })}</p>` : ''}
-        <output id="temp-out" class="muted small"></output>
-        <p class="muted small">${t('burpPlan')}: ${esc(rhythmText(tpl))}</p>
-      </fieldset>
-      <label class="photo-pick">${t('fPhoto')}<input type="file" name="photo" accept="image/*" capture="environment"></label>
-      ${tpl.veg ? `<p class="tip">🪨 ${t('vegTip')}</p>` : ''}
-      ${tpl.pressure ? `<p class="alert">⚠️ ${tl(tpl.mistakes)}</p>` : ''}
-      <button class="btn primary big" type="submit">${t('create')}</button>
+        ${tpl.tempFixed ? `<p class="note">🌡️ ${t('keepTemp', { t: tpl.keepTemp })}</p>` : ''}
+        <details class="disclosure">
+          <summary>${t('adjust')}</summary>
+          <div class="field-grid">
+            ${field(t('fStart'), `<input type="datetime-local" name="startedAt" value="${toLocalInput(now)}" required>`)}
+            ${tpl.tempFixed ? `<input type="hidden" name="ambientTemp" value="${tpl.keepTemp}">` : field(t('planTemp'), `<input type="number" name="ambientTemp" min="5" max="40" step="0.5" value="${esc(v.temp)}" inputmode="decimal">`, '°C')}
+            ${field(t(short ? 'fMinHours' : 'fMinDays'), `<input type="number" name="min" min="1" value="${v.min}" required inputmode="numeric">`, unitWord)}
+            ${field(t(short ? 'fMaxHours' : 'fMaxDays'), `<input type="number" name="max" min="1" value="${v.max}" required inputmode="numeric">`, unitWord)}
+          </div>
+        </details>
+      </section>
+
+      <details class="panel disclosure-panel">
+        <summary>${t('moreOptions')}</summary>
+        <div class="field-grid">
+          ${field(t('volume'), `<input type="number" name="volumeL" min="0.05" step="0.05" value="${esc(v.volumeL)}" inputmode="decimal">`, 'L')}
+        </div>
+        <label class="photo-drop"><input type="file" name="photo" accept="image/*" capture="environment"><span>📷 ${t('fPhoto')}</span></label>
+      </details>
+
+      ${tpl.pressure ? `<p class="note warn">⚠️ ${esc(tl(tpl.mistakes))}</p>` : ''}
+      ${tpl.veg ? `<p class="note">🪨 ${t('vegTipShort')}</p>` : ''}
+
+      <div class="sticky-cta"><button class="btn primary big" type="submit">${t('create')}</button></div>
     </form>`;
 }
 
@@ -338,16 +359,22 @@ function bindNewForm() {
   const form = document.getElementById('new-form');
   const tpl = tplById(form.dataset.tpl);
   const unit = Number(form.dataset.unit);
+  const num = (x) => (x === '' || x === undefined ? null : Number(x));
   const update = () => {
     const f = form.elements;
     if (tpl.salt) {
       const g = saltGrams(f.vegG.value, f.waterG.value, f.saltPct.value);
-      document.getElementById('salt-out').textContent = g ? t('fSaltNeeded', { g: g.toLocaleString(getLang()) }) : '';
+      const loc = (n) => Number(n).toLocaleString(getLang());
+      document.getElementById('salt-out').innerHTML = g
+        ? `<span class="salt-big">${t('saltBig', { g: loc(g) })}</span><span class="salt-sub">${t('saltFor', { veg: loc(f.vegG.value || 0), water: Number(f.waterG.value) ? t('saltWaterPart', { w: loc(f.waterG.value) }) : '', p: loc(f.saltPct.value) })}</span>`
+        : `<span class="salt-sub">${t('saltEnterWeight')}</span>`;
       const w = saltWarning(tpl.salt, f.saltPct.value);
-      document.getElementById('salt-warn').innerHTML = w ? `<p class="alert" role="alert">⚠️ ${t(w === 'low' ? 'saltLow' : 'saltHigh', { p: f.saltPct.value, min: tpl.salt.min })}</p>` : '';
+      document.getElementById('salt-warn').innerHTML = w ? `<p class="note warn" role="alert">⚠️ ${t(w === 'low' ? 'saltLow' : 'saltHigh', { p: loc(f.saltPct.value), min: loc(tpl.salt.min) })}</p>` : '';
     }
-    const fac = tpl.tempFixed ? 1 : tempFactor(f.ambientTemp.value);
-    document.getElementById('temp-out').textContent = t('fTempEffect', { t: f.ambientTemp.value || 20, range: fmtRange(f.min.value * unit * fac, f.max.value * unit * fac) });
+    const temp = f.ambientTemp.value || 20;
+    const fac = tpl.tempFixed ? 1 : tempFactor(temp);
+    document.getElementById('temp-out').textContent = fmtRange(f.min.value * unit * fac, Math.max(f.min.value, f.max.value) * unit * fac);
+    document.getElementById('temp-val').textContent = `${temp} °C`;
   };
   form.addEventListener('input', update);
   update();
@@ -357,7 +384,6 @@ function bindNewForm() {
     const min = Number(f.min.value) * unit;
     const max = Math.max(min, Number(f.max.value) * unit);
     const photo = f.photo.files[0] ? await readPhoto(f.photo.files[0]) : null;
-    const num = (x) => (x === '' || x === undefined ? null : Number(x));
     const jar = jarFromTemplate(tpl, {
       name: f.name.value.trim() || suggestName(tpl, []),
       startedAt: new Date(f.startedAt.value).getTime(),
@@ -409,16 +435,48 @@ function logEntries(jar) {
 }
 
 function entryHtml(jar, e) {
-  const when = fmtDate(Date.parse(e.at), true);
-  let body = '';
-  if (e.kind === 'burp') body = `${careIcon(jar.action)} ${verb(jar.action)}`;
-  else if (e.kind === 'event') body = `⭐ ${t(`ev_${e.event}`)}${e.to ? `: ${esc(tl(tplById(e.to)?.name))}` : ''}`;
+  const when = fmtWhen(Date.parse(e.at));
+  let icon = '📝';
+  let title = '';
+  let extra = '';
+  if (e.kind === 'burp') { icon = careIcon(jar.action); title = verb(jar.action); }
+  else if (e.kind === 'event') { icon = '⭐'; title = `${t(`ev_${e.event}`)}${e.to ? `: ${esc(tl(tplById(e.to)?.name))}` : ''}`; }
   else {
+    icon = e.kind === 'taste' ? '🥄' : e.kind === 'obs' ? '👀' : '📝';
+    title = e.kind === 'taste' ? `<span aria-label="${e.taste}/5" class="stars-inline">${stars(e.taste)}</span>` : e.kind === 'obs' ? t('addObs') : t('addNote');
     const obs = e.obs ? Object.entries(e.obs).filter(([, v]) => v).map(([k]) => `<span class="tag${['mold', 'offSmell'].includes(k) ? ' danger' : ''}">${t(`obs_${k}`)}</span>`).join('') : '';
-    body = `${e.kind === 'taste' ? `🥄 <span aria-label="${e.taste}/5">${stars(e.taste)}</span>` : e.kind === 'obs' ? '👀' : '📝'} ${esc(e.text || '')} ${obs}`;
+    extra = `${e.text ? `<p class="entry-text">${esc(e.text)}</p>` : ''}${obs ? `<div class="entry-tags">${obs}</div>` : ''}`;
   }
-  return `<li><time>${when}</time><div>${body}${e.photo ? `<img class="log-photo" src="${e.photo}" alt="">` : ''}</div></li>`;
+  return `<li class="entry entry-${e.kind}"><span class="entry-dot" aria-hidden="true">${icon}</span>
+    <div class="entry-body"><div class="entry-head"><span class="entry-title">${title}</span><time>${when}</time></div>${extra}${e.photo ? `<img class="log-photo" src="${e.photo}" alt="">` : ''}</div></li>`;
 }
+
+function progressPanel(jar, now) {
+  const p = progress(jar, now);
+  const short = p.maxH < 48;
+  const div = short ? 1 : 24;
+  const d = short ? Math.floor(p.elapsedH) : Math.floor(p.elapsedH / 24) + 1;
+  const of = t('progressOf', { min: Math.round(p.minH / div), max: Math.round(p.maxH / div), unit: short ? t('hours') : t('days') });
+  const label = `${t(short ? 'progressHour' : 'progressDay', { d })} ${of}`;
+  const start = Date.parse(jar.startedAt);
+  return `<section class="panel">
+    <div class="progress-head">
+      <p><span class="big-num">${t(short ? 'progressHour' : 'progressDay', { d })}</span> <span class="muted">${of}</span></p>
+      <span class="pill stage-${p.stage}">${t(`stage_${p.stage}`)}</span>
+    </div>
+    <div class="bar stage-${p.stage}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p.pct * 100)}" aria-label="${esc(label)}">
+      <div class="bar-zone" style="left:${p.minPct * 100}%"></div>
+      <div class="bar-fill" style="width:${p.pct * 100}%"></div>
+    </div>
+    <div class="milestones">
+      <span><b>${t('msStart')}</b>${short ? fmtWhen(start, now) : fmtShortDate(start, now)}</span>
+      <span><b>${t('msTaste')}</b>${short ? fmtWhen(p.tasteAt, now) : fmtShortDate(p.tasteAt, now)}</span>
+      <span><b>${t('msHarvest')}</b>${short ? fmtWhen(p.harvestAt, now) : fmtShortDate(p.harvestAt, now)}</span>
+    </div>
+  </section>`;
+}
+
+const row = (label, value) => `<div class="row-item"><dt>${label}</dt><dd>${value}</dd></div>`;
 
 function viewJar(id, now) {
   const jar = jarById(id);
@@ -431,61 +489,70 @@ function viewJar(id, now) {
   const p = progress(jar, now);
   const flagged = jar.log.slice(-5).some((e) => e.obs && (e.obs.mold || e.obs.offSmell));
   const nextTpl = jar.nextPhase ? tplById(jar.nextPhase) : null;
+  const lastCare = jar.burps.length ? Date.parse(jar.burps[jar.burps.length - 1]) : null;
+  const saltLow = saltWarning({ min: jar.saltMin ?? 0, max: 100 }, jar.saltPct) === 'low';
   return `${header(jar.name, active ? '#/shelf' : '#/archive')}
     <section class="jar-hero mood-bg-${m}">
       ${jar.photo ? `<img class="jar-photo" src="${jar.photo}" alt="">` : ''}
-      ${jarChar(jar, now, 160)}
-      <p class="mood-text"><strong>${t(`mood_${m}`)}</strong><br><span class="muted">${esc(tl(tpl.name))}${jar.phase > 1 ? ` · F${jar.phase}` : ''}</span></p>
+      ${jarChar(jar, now, 168)}
+      <div class="chip-row">
+        ${active ? '' : `<span class="pill stage-done">${stageText(jar, now)}</span>`}
+        <span class="pill soft">${t(`mood_${m}`)}</span>
+      </div>
+      <p class="eyebrow">${esc(tl(tpl.name))}${jar.phase > 1 ? ` · F${jar.phase}` : ''}</p>
     </section>
     ${flagged ? `<div class="safety-banner" role="alert"><strong>${t('moldAlert')}</strong><a href="#/safety">${t('openChecker')} →</a></div>` : ''}
     ${active ? `
-      <section class="card">${progressBar(jar, now)}</section>
-      ${jar.action !== 'none' && b ? `<section class="card burp-card${b.due ? ' due' : ''}${ts.some((x) => x.urgent) ? ' urgent' : ''}">
+      ${progressPanel(jar, now)}
+      ${jar.action !== 'none' && b ? `<section class="panel care${b.due ? ' due' : ''}${ts.some((x) => x.urgent) ? ' urgent' : ''}">
         <button class="btn primary huge" data-action="burp" data-id="${jar.id}">${careIcon(jar.action)} ${verb(jar.action)}</button>
-        <div class="burp-info">
-          <span>${t('lastBurp', { t: jar.burps.length ? fmtWhen(Date.parse(jar.burps[jar.burps.length - 1]), now) : t('never') })}</span>
-          <span>${b.due ? `<b>${t('lateBy', { t: fmtDuration(Math.max(b.lateH, 0.02)) })}</b>` : t('nextBurp', { t: fmtWhen(b.dueAt, now) })}</span>
+        <div class="stat-row two">
+          <div class="stat"><span class="stat-label">${t('lastLabel')}</span><span class="stat-value">${lastCare ? fmtWhen(lastCare, now) : t('notYet')}</span></div>
+          ${b.due
+            ? `<div class="stat late"><span class="stat-label">${t('lateLabel')}</span><span class="stat-value">${fmtDuration(Math.max(b.lateH, 0.02))}</span></div>`
+            : `<div class="stat"><span class="stat-label">${t('nextLabel')}</span><span class="stat-value">${fmtWhen(b.dueAt, now)}</span></div>`}
         </div>
-        ${ts.some((x) => x.pressure) ? `<p class="alert" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
-      </section>` : jar.action === 'none' ? `<p class="muted small center">${t('burpNone')}</p>` : ''}
-      <div class="actions wide">
-        <button class="btn${p.stage !== 'active' ? ' primary' : ''}" data-action="taste" data-id="${jar.id}">🥄 ${t('doTaste')}</button>
-        <button class="btn${['harvestReady', 'overdue'].includes(p.stage) ? ' primary' : ''}" data-action="harvest" data-id="${jar.id}">🧺 ${t('doHarvest')}</button>
+        ${ts.some((x) => x.pressure) ? `<p class="note warn" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
+      </section>` : ''}
+      <div class="action-pair">
+        <button class="btn big${p.stage !== 'active' ? ' primary' : ''}" data-action="taste" data-id="${jar.id}">🥄 ${t('doTaste')}</button>
+        <button class="btn big${['harvestReady', 'overdue'].includes(p.stage) ? ' primary' : ''}" data-action="harvest" data-id="${jar.id}">🧺 ${t('doHarvest')}</button>
       </div>
-      ${nextTpl && p.stage !== 'active' ? `<section class="card"><p>${t('nextPhaseText')}</p><button class="btn" data-action="phase" data-id="${jar.id}">🍾 ${t('nextPhase', { name: esc(tl(nextTpl.name)) })}</button></section>` : ''}
-      ${jar.veg ? `<p class="tip">🪨 ${t('vegTip')}</p>` : ''}
+      ${nextTpl && p.stage !== 'active' ? `<section class="panel"><p>${t('nextPhaseText')}</p><button class="btn" data-action="phase" data-id="${jar.id}">🍾 ${t('nextPhase', { name: esc(tl(nextTpl.name)) })}</button></section>` : ''}
+      ${jar.veg ? `<p class="note">🪨 ${t('vegTipShort')}</p>` : ''}
     ` : `
-      <section class="card">
-        <dl class="facts">
-          <dt>${t('harvested')}</dt><dd>${fmtDate(Date.parse(jar.harvestedAt))}</dd>
-          <dt>${t('duration')}</dt><dd>${fmtDuration((Date.parse(jar.harvestedAt) - Date.parse(jar.startedAt)) / HOUR)}</dd>
-          ${jar.status === 'fridge' ? `<dt>❄️</dt><dd>${t('bestBefore', { d: fmtDate(Date.parse(jar.bestBefore)) })}</dd>` : ''}
-          ${jar.rating ? `<dt>★</dt><dd aria-label="${jar.rating}/5">${stars(jar.rating)}</dd>` : ''}
+      <section class="panel">
+        <dl class="rows">
+          ${row(t('harvested'), fmtDate(Date.parse(jar.harvestedAt)))}
+          ${row(t('duration'), fmtDuration((Date.parse(jar.harvestedAt) - Date.parse(jar.startedAt)) / HOUR))}
+          ${jar.status === 'fridge' ? row('❄️', t('bestBefore', { d: fmtDate(Date.parse(jar.bestBefore)) })) : ''}
+          ${jar.rating ? row('★', `<span aria-label="${jar.rating}/5" class="stars-inline">${stars(jar.rating)}</span>`) : ''}
         </dl>
-        <div class="actions">
-          <a class="btn primary" href="${repeatHref(jar)}">🔁 ${t('repeat')}</a>
+        <div class="actions stack">
+          <a class="btn primary big" href="${repeatHref(jar)}">🔁 ${t('repeat')}</a>
           <button class="btn" data-action="save-template" data-id="${jar.id}">💾 ${t('saveTemplate')}</button>
           ${jar.status === 'fridge' ? `<button class="btn" data-action="finish" data-id="${jar.id}">✔️ ${t('finish')}</button>` : ''}
         </div>
       </section>`}
-    <section class="card">
-      <dl class="facts">
-        <dt>${t('started')}</dt><dd>${fmtDate(Date.parse(jar.startedAt), true)}</dd>
-        ${jar.saltPct !== null && jar.saltPct !== undefined ? `<dt>${t('salt')}</dt><dd>${jar.saltPct}%${jar.vegG || jar.waterG ? ` · ${saltGrams(jar.vegG, jar.waterG, jar.saltPct)} g` : ''}${saltWarning({ min: jar.saltMin ?? 0, max: 100 }, jar.saltPct) === 'low' ? ` <span class="tag danger">⚠️ &lt; ${jar.saltMin}%</span>` : ''}</dd>` : ''}
-        <dt>${t('temp')}</dt><dd>${jar.ambientTemp ?? 20} °C</dd>
-        ${jar.volumeL ? `<dt>${t('volume')}</dt><dd>${jar.volumeL} L</dd>` : ''}
-        <dt>${t('burpPlan')}</dt><dd>${esc(rhythmText(jar))}</dd>
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">${t('detailsTitle')}</h2>${active ? `<button class="btn small ghost" data-action="edit" data-id="${jar.id}">✏️ ${t('edit')}</button>` : ''}</div>
+      <dl class="rows">
+        ${row(t('started'), fmtDate(Date.parse(jar.startedAt), true))}
+        ${jar.saltPct !== null && jar.saltPct !== undefined ? row(t('salt'), `${jar.saltPct}%${jar.vegG || jar.waterG ? ` · ${saltGrams(jar.vegG, jar.waterG, jar.saltPct)} g` : ''}${saltLow ? ` <span class="tag danger">⚠️ &lt; ${jar.saltMin}%</span>` : ''}`) : ''}
+        ${row(t('temp'), `${jar.ambientTemp ?? 20} °C`)}
+        ${jar.volumeL ? row(t('volume'), `${jar.volumeL} L`) : ''}
+        ${row(t('burpPlan'), esc(rhythmShort(jar)))}
       </dl>
-      ${active ? `<button class="btn small" data-action="edit" data-id="${jar.id}">✏️ ${t('edit')}</button>` : ''}
     </section>
     ${jar.recipe ? recipeCard(jar) : ''}
-    <section>
-      <h2>${t('logTitle')}</h2>
-      <div class="actions">
-        <button class="btn small" data-action="note" data-id="${jar.id}">📝 ${t('addNote')}</button>
-        <button class="btn small" data-action="obs" data-id="${jar.id}">👀 ${t('addObs')}</button>
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">${t('logTitle')}</h2>
+        <div class="head-actions">
+          <button class="btn small ghost" data-action="note" data-id="${jar.id}">📝 ${t('addNote')}</button>
+          <button class="btn small ghost" data-action="obs" data-id="${jar.id}">👀 ${t('addObs')}</button>
+        </div>
       </div>
-      <ul class="log">${logEntries(jar).map((e) => entryHtml(jar, e)).join('')}</ul>
+      <ul class="timeline">${logEntries(jar).map((e) => entryHtml(jar, e)).join('')}</ul>
     </section>
     <p class="center"><button class="btn danger small" data-action="delete" data-id="${jar.id}">${t('deleteJar')}</button></p>`;
 }
