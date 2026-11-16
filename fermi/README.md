@@ -21,6 +21,10 @@ en open de URL op je telefoon:
 - **Android (Chrome)**: Meer → Installeren, of het browsermenu → "App installeren".
 - **iPhone/iPad (Safari)**: Delen → "Zet op beginscherm".
 
+Live: **https://thomaskoel101.github.io/blok-web/** (branch `gh-pages`, met de inhoud van `fermi/` in de
+hoofdmap). Bijwerken: kopieer de app-bestanden naar die branch, verhoog `CACHE` in `sw.js` zodat telefoons de
+nieuwe versie ophalen, en push.
+
 Na de eerste keer openen werkt de app volledig offline. Let op: het Claude-artifact is alleen een preview; daar
 draait geen service worker en kun je niet installeren.
 
