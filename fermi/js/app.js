@@ -24,8 +24,15 @@ const DEMO_NAMES = new Set(['Klaas Kool', 'Kim Chi', 'Plop', 'Scoby Doo', 'Sense
 }
 // Bestaande zuurdesemstarters overzetten naar het starter-ritme (aanrecht/koelkast, geen oogst).
 for (const j of state.jars) {
-  if (j.templateId === 'sourdough' && j.starter === undefined) Object.assign(j, { starter: true, location: 'counter', feedCounterH: 24, feedFridgeH: 7 * 24 });
+  const tpl = TEMPLATES.find((x) => x.id === j.templateId);
+  if (!tpl?.starter) continue;
+  if (j.starter === undefined) Object.assign(j, { starter: true, location: 'counter', feedCounterH: tpl.feedCounterH, feedFridgeH: tpl.feedFridgeH });
+  if (!j.starterUse) Object.assign(j, { starterUse: tpl.starterUse, peakH: tpl.peakH });
 }
+// Teksten voor starters: zuurdesem bak je mee, een ginger bug gebruik je om te brouwen.
+const brew = (jar) => jar.starterUse === 'brew';
+const sk = (jar, key) => (brew(jar) ? `${key}Brew` : key);
+const moodText = (jar, m) => t(m === 'peak' && brew(jar) ? 'mood_peakBrew' : `mood_${m}`);
 
 const main = document.getElementById('main');
 const modal = document.getElementById('modal');
@@ -108,7 +115,7 @@ function render() {
 
 function jarChar(jar, now, size = 96) {
   const m = mood(jar, now);
-  return character(jar.species, m, { bloat: bloat(jar, now), lid: jar.action === 'burp', size, label: `${jar.name}: ${t(`mood_${m}`)}`, avatar: jar.avatar });
+  return character(jar.species, m, { bloat: bloat(jar, now), lid: jar.action === 'burp', size, label: `${jar.name}: ${moodText(jar, m)}`, avatar: jar.avatar });
 }
 
 function stageText(jar, now) {
@@ -522,7 +529,7 @@ function progressPanel(jar, now) {
       <span><b>${t('msTaste')}</b>${short ? fmtWhen(p.tasteAt, now) : fmtShortDate(p.tasteAt, now)}</span>
       <span><b>${t('msHarvest')}</b>${short ? fmtWhen(p.harvestAt, now) : fmtShortDate(p.harvestAt, now)}</span>
     </div>`}
-    ${jar.starter ? `<p class="field-hint">${t('starterEstablishHint')}</p>` : ''}
+    ${jar.starter ? `<p class="field-hint">${t(sk(jar, 'starterEstablishHint'))}</p>` : ''}
   </section>`;
 }
 
@@ -537,14 +544,14 @@ function starterControls(jar, now) {
       <button type="button" class="${fridge ? '' : 'on'}" aria-pressed="${!fridge}" data-action="set-location" data-loc="counter" data-id="${jar.id}">🏠 ${t('loc_counter')}</button>
       <button type="button" class="${fridge ? 'on' : ''}" aria-pressed="${fridge}" data-action="set-location" data-loc="fridge" data-id="${jar.id}">❄️ ${t('loc_fridge')}</button>
     </div>
-    <p class="field-hint">${fridge ? t('starterFridgeText', { every: every(jar.feedFridgeH || 168) }) : t('starterCounterText', { every: every(jar.feedCounterH || 24) })}</p>
-    ${peak && (peak.now || peak.soon) ? `<p class="note">🍞 ${t('peakAt', { from: fmtTime(peak.from), to: fmtTime(peak.to) })}</p>` : ''}
+    <p class="field-hint">${fridge ? t(sk(jar, 'starterFridgeText'), { every: every(jar.feedFridgeH || 168) }) : t('starterCounterText', { every: every(jar.feedCounterH || 24) })}</p>
+    ${peak && (peak.now || peak.soon) ? `<p class="note">${brew(jar) ? '🫧' : '🍞'} ${t(sk(jar, 'peakAt'), { from: fmtTime(peak.from), to: fmtTime(peak.to) })}</p>` : ''}
   </section>
   <div class="action-pair">
     ${fridge
-      ? `<button class="btn primary big wide" data-action="set-location" data-loc="counter" data-id="${jar.id}">🌡️ ${t('fromFridge')}</button>`
+      ? `<button class="btn primary big wide" data-action="set-location" data-loc="counter" data-id="${jar.id}">🌡️ ${t(sk(jar, 'fromFridge'))}</button>`
       : `<button class="btn big" data-action="set-location" data-loc="fridge" data-id="${jar.id}">❄️ ${t('toFridge')}</button>
-         <button class="btn big${peak?.now ? ' primary' : ''}" data-action="baked" data-id="${jar.id}">🍞 ${t('baked')}</button>`}
+         <button class="btn big${peak?.now ? ' primary' : ''}" data-action="baked" data-id="${jar.id}">${brew(jar) ? '🍾' : '🍞'} ${t(sk(jar, 'baked'))}</button>`}
   </div>`;
 }
 
@@ -569,7 +576,7 @@ function viewJar(id, now) {
       ${jarChar(jar, now, 168)}
       <div class="chip-row">
         ${active ? '' : `<span class="pill stage-done">${stageText(jar, now)}</span>`}
-        <span class="pill soft">${t(`mood_${m}`)}</span>
+        <span class="pill soft">${moodText(jar, m)}</span>
       </div>
       <p class="eyebrow">${esc(tl(tpl.name))}${jar.phase > 1 ? ` · F${jar.phase}` : ''}</p>
     </section>
@@ -1325,12 +1332,12 @@ document.addEventListener('click', async (e) => {
       const loc = el.dataset.loc;
       if (jar.location === loc) break;
       updateJar(id, (j) => ({ ...j, location: loc, movedAt: nowISO(), log: [...j.log, { id: uid('e'), at: nowISO(), kind: 'event', event: loc === 'fridge' ? 'toFridge' : 'fromFridge' }] }));
-      toast(loc === 'fridge' ? `❄️ ${t('toFridgeToast', { name: jar.name })}` : `🌡️ ${t('fromFridgeToast')}`);
+      toast(loc === 'fridge' ? `❄️ ${t('toFridgeToast', { name: jar.name })}` : `🌡️ ${t(sk(jar, 'fromFridgeToast'))}`);
       break;
     }
     case 'baked':
-      updateJar(id, (j) => ({ ...j, log: [...j.log, { id: uid('e'), at: nowISO(), kind: 'event', event: 'baked' }] }));
-      toast(`🍞 ${t('ev_baked')}!`);
+      updateJar(id, (j) => ({ ...j, log: [...j.log, { id: uid('e'), at: nowISO(), kind: 'event', event: brew(jar) ? 'brewed' : 'baked' }] }));
+      toast(brew(jar) ? `🍾 ${t('ev_brewed')}!` : `🍞 ${t('ev_baked')}!`);
       break;
     case 'finish': updateJar(id, (j) => ({ ...j, status: 'done', finishedAt: nowISO() })); break;
     case 'delete':

@@ -58,3 +58,15 @@ test('zuurdesemstarter: geen proeven of oogsten, wel aanrecht en koelkast', () =
   const fed = { ...out, burps: [...out.burps, new Date(later + 2 * 24 * HOUR + 120e3).toISOString()] };
   assert.equal(mood(fed, later + 2 * 24 * HOUR + 5 * HOUR), 'peak');
 });
+
+test('ginger bug is ook een starter, met een kortere piek (brouwen)', () => {
+  const j = jarFromTemplate(T.gingerbug, { startedAt: t0 }, t0);
+  assert.equal(j.starter, true);
+  assert.equal(j.starterUse, 'brew');
+  const later = t0 + 20 * 24 * HOUR;
+  j.burps.push(new Date(later).toISOString());
+  assert.equal(progress(j, later).stage, 'established');
+  assert.deepEqual(tasks(j, later + HOUR), []);
+  assert.equal(mood(j, later + 3 * HOUR), 'peak');
+  assert.notEqual(mood(j, later + 7 * HOUR), 'peak');
+});

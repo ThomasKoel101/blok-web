@@ -45,6 +45,8 @@ export function jarFromTemplate(tpl, fields = {}, now = Date.now()) {
     starter: !!tpl.starter,
     location: tpl.starter ? 'counter' : undefined,
     feedCounterH: tpl.feedCounterH,
+    starterUse: tpl.starterUse,
+    peakH: tpl.peakH,
     feedFridgeH: tpl.feedFridgeH,
     recipe: tpl.recipe || null,
     nextPhase: tpl.nextPhase || null,
@@ -125,13 +127,14 @@ export function lastTaste(jar) {
 
 export const starterFeedH = (jar) => (jar.location === 'fridge' ? jar.feedFridgeH || 7 * 24 : jar.feedCounterH || 24);
 
-// Piek na het voeden (4 tot 8 uur): het moment om te bakken.
+// Piek na het voeden (zuurdesem 4 tot 8 uur, ginger bug 2 tot 6 uur): het moment om te bakken of te brouwen.
 export function starterPeak(jar, now = Date.now()) {
   if (!jar.starter || jar.location === 'fridge' || !jar.burps.length) return null;
   const last = ts(jar.burps[jar.burps.length - 1]);
   if (jar.movedAt && ts(jar.movedAt) > last) return null;
-  const from = last + 4 * HOUR;
-  const to = last + 8 * HOUR;
+  const [a, b] = jar.peakH || [4, 8];
+  const from = last + a * HOUR;
+  const to = last + b * HOUR;
   return { from, to, now: now >= from && now <= to, soon: now < from };
 }
 
