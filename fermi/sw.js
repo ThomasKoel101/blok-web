@@ -2,7 +2,7 @@
 // en handelt aangetikte meldingen af.
 // Strategie: app-shell vooraf cachen; daarna "stale-while-revalidate": direct uit de
 // cache (snel en offline), en op de achtergrond de nieuwste versie ophalen.
-const CACHE = 'fermi-v3';
+const CACHE = 'fermi-v4';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.json', 'icon.svg',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
