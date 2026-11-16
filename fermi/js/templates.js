@@ -73,6 +73,27 @@ export const TEMPLATES = [
     },
   },
   {
+    id: 'sproutkimchi', species: 'sprout', continent: 'asia', difficulty: 2, veg: true,
+    name: { nl: 'Spruitjeskimchi', en: 'Brussels sprout kimchi' }, origin: { nl: 'Korea (moderne variant)', en: 'Korea (modern twist)' },
+    salt: { def: 2.5, min: 2, max: 3 }, minH: 3 * H, maxH: 10 * H,
+    action: 'burp', burp: [{ fromH: 0, everyH: 12 }, { fromH: 3 * H, everyH: 24 }],
+    tasteEveryH: 24, fridgeDays: 90,
+    character: { nl: 'Spruitje met blosjes', en: 'Blushing sprout' },
+    names: ['Spruit Sun', 'Kleine Kim', 'Blosje Bram', 'Sprouty', 'Gochu Gijs'],
+    info: {
+      nl: 'Gehalveerde of fijngesneden spruitjes, eerst gezouten en daarna ingewreven met een kimchipasta van gochugaru, knoflook, gember en vissaus of misopasta.',
+      en: 'Halved or shredded Brussels sprouts, salted first and then rubbed with a kimchi paste of gochugaru, garlic, ginger and fish sauce or miso.',
+    },
+    good: {
+      nl: 'Bubbels na 1 tot 2 dagen, spruitjes blijven stevig, geur pittig en zuur met een kool-ondertoon.',
+      en: 'Bubbles after 1 to 2 days, sprouts stay firm, smell is spicy and sour with a cabbage undertone.',
+    },
+    mistakes: {
+      nl: 'Hele spruitjes (zout trekt er slecht in; halveer of snijd ze), pot te vol, schrikken van de sterke zwavelgeur in de eerste dagen (normaal bij spruitjes).',
+      en: 'Whole sprouts (salt barely penetrates; halve or shred them), overfilled jar, being put off by the strong sulphur smell in the first days (normal for sprouts).',
+    },
+  },
+  {
     id: 'pickles', species: 'pickle', continent: 'europe', difficulty: 1, veg: true,
     name: { nl: 'Augurken (half-sour)', en: 'Pickles (half-sour)' }, origin: { nl: 'Oost-Europa / Joods-NY', en: 'Eastern Europe / Jewish NY' },
     salt: { def: 4, min: 3.5, max: 5, brine: true }, minH: 3 * H, maxH: 10 * H,
@@ -94,6 +115,27 @@ export const TEMPLATES = [
     },
   },
   {
+    id: 'dillsour', species: 'dillpickle', continent: 'europe', difficulty: 1, veg: true,
+    name: { nl: 'Dille-zuuraugurken (full-sour)', en: 'Dill sour pickles (full-sour)' }, origin: { nl: 'Oost-Europa / New Yorkse deli', en: 'Eastern Europe / New York deli' },
+    salt: { def: 5, min: 3.5, max: 6, brine: true }, minH: 14 * H, maxH: 28 * H,
+    action: 'burp', burp: [{ fromH: 0, everyH: 24 }, { fromH: 7 * H, everyH: 48 }],
+    tasteEveryH: 72, fridgeDays: 180,
+    character: { nl: 'Augurk met dillekuif', en: 'Pickle with a dill quiff' },
+    names: ['Dille Dolf', 'Zure Zjef', 'Kuifje Kroes', 'Deli Danny', 'Groene Gijs'],
+    info: {
+      nl: 'Kleine stevige komkommers in een pekel van ca. 5% met veel verse dille (ook de bloemschermen), knoflook, mosterdzaad en een druiven-, eiken- of laurierblad. Langer dan half-sour: door en door zuur.',
+      en: 'Small firm cucumbers in a brine of about 5% with plenty of fresh dill (including the flower heads), garlic, mustard seed and a grape, oak or bay leaf. Longer than half-sour: sour all the way through.',
+    },
+    good: {
+      nl: 'Pekel wordt troebel, schil olijfgroen en van binnen glazig tot het midden, knapperig met een stevig zure smaak.',
+      en: 'Brine turns cloudy, skin olive green and translucent right to the centre, crunchy with a firm sour taste.',
+    },
+    mistakes: {
+      nl: 'Bloesemuiteinde laten zitten (zacht), te warm (hol of papperig), geen tannine-blad, augurken boven de pekel.',
+      en: 'Leaving the blossom end on (soft), too warm (hollow or mushy), no tannin leaf, cucumbers above the brine.',
+    },
+  },
+  {
     id: 'hotsauce', species: 'pepper', continent: 'world', difficulty: 2, veg: true,
     name: { nl: 'Hot sauce (lacto)', en: 'Hot sauce (lacto)' }, origin: { nl: 'Wereldwijd', en: 'Worldwide' },
     salt: { def: 2.5, min: 2, max: 3.5 }, minH: 7 * H, maxH: 28 * H,
@@ -112,6 +154,48 @@ export const TEMPLATES = [
     mistakes: {
       nl: 'Stukjes peper die bovendrijven (schimmelkans), handschoenen vergeten, pot te vol.',
       en: 'Floating bits of pepper (mould risk), forgetting gloves, overfilled jar.',
+    },
+  },
+  {
+    id: 'pineapplehot', species: 'pinehot', continent: 'americas', difficulty: 2, veg: true,
+    name: { nl: 'Ananas-hotsauce', en: 'Pineapple hot sauce' }, origin: { nl: 'Caribisch gebied / wereldwijd', en: 'Caribbean / worldwide' },
+    salt: { def: 2.5, min: 2, max: 3.5 }, minH: 5 * H, maxH: 14 * H,
+    action: 'burp', burp: [{ fromH: 0, everyH: 12 }],
+    tasteEveryH: 48, fridgeDays: 120,
+    character: { nl: 'Pittige ananas met pepertje', en: 'Spicy pineapple with a chilli' },
+    names: ['Piña Picante', 'Habanero Hank', 'Tropische Tess', 'Scotch Bonnie', 'Ananas Arie'],
+    info: {
+      nl: 'Ananas met habanero of scotch bonnet, ui en knoflook in een pekel of droog gezouten, en na het fermenteren geblend. Zoet, fruitig en heet.',
+      en: 'Pineapple with habanero or scotch bonnet, onion and garlic in a brine or dry-salted, blended after fermenting. Sweet, fruity and hot.',
+    },
+    good: {
+      nl: 'Snel actief door de suiker: veel bubbels in de eerste dagen, fruitig-zure geur.',
+      en: 'Quickly active thanks to the sugar: lots of bubbles in the first days, fruity sour smell.',
+    },
+    mistakes: {
+      nl: 'Te veel ananas (meer dan ongeveer de helft): de suiker geeft gist en alcohol, ferment dan korter. Vaak burpen, er komt veel druk.',
+      en: 'Too much pineapple (more than about half): the sugar invites yeast and alcohol, so ferment it shorter. Burp often, it builds a lot of pressure.',
+    },
+  },
+  {
+    id: 'everydayhot', species: 'saucebottle', continent: 'world', difficulty: 1, veg: true,
+    name: { nl: 'Everyday hotsauce', en: 'Everyday hot sauce' }, origin: { nl: 'Wereldwijd', en: 'Worldwide' },
+    salt: { def: 2.5, min: 2, max: 3.5 }, minH: 7 * H, maxH: 21 * H,
+    action: 'burp', burp: [{ fromH: 0, everyH: 24 }],
+    tasteEveryH: 72, fridgeDays: 180,
+    character: { nl: 'Vrolijke sausfles', en: 'Cheerful sauce bottle' },
+    names: ['Dagelijkse Daan', 'Saus Sam', 'Fresno Fien', 'Alledaagse Ali', 'Huis Heet'],
+    info: {
+      nl: 'Een milde, veelzijdige saus: rode pepers zoals fresno of jalapeño met wortel, ui en knoflook, gefermenteerd en dan geblend met een scheut azijn. Op alles te gebruiken.',
+      en: 'A mild, versatile sauce: red chillies such as fresno or jalapeño with carrot, onion and garlic, fermented and then blended with a splash of vinegar. Goes on everything.',
+    },
+    good: {
+      nl: 'Bruisend in week 1, ronde zure geur, kleur iets doffer.',
+      en: 'Fizzy in week 1, rounded sour smell, colour slightly duller.',
+    },
+    mistakes: {
+      nl: 'Stukjes die bovendrijven (schimmelkans), te vroeg blenden, na het blenden een dichte fles zonder azijn of koelkast (blijft gisten).',
+      en: 'Floating pieces (mould risk), blending too early, a sealed bottle after blending without vinegar or fridge (keeps fermenting).',
     },
   },
   {
@@ -322,6 +406,27 @@ export const TEMPLATES = [
     mistakes: {
       nl: 'Luchtzakken in de massa, te weinig zout aan het oppervlak, te vaak openmaken.',
       en: 'Air pockets in the mass, too little salt on the surface, opening it too often.',
+    },
+  },
+  {
+    id: 'pumpkinmiso', species: 'pumpkin', continent: 'asia', difficulty: 3, veg: false, long: true,
+    name: { nl: 'Pompoenmiso', en: 'Pumpkin miso' }, origin: { nl: 'Japans-geïnspireerd', en: 'Japanese-inspired' },
+    salt: { def: 11, min: 10, max: 13 }, minH: 60 * H, maxH: 180 * H,
+    action: 'check', burp: [{ fromH: 0, everyH: 30 * H }],
+    tasteEveryH: 30 * H, fridgeDays: 365,
+    character: { nl: 'Wijze pompoen met hoofdband', en: 'Wise pumpkin with a headband' },
+    names: ['Pompoen-sensei', 'Oranje Oma', 'Kabocha-san', 'Herfst Henk', 'Umami Uma'],
+    info: {
+      nl: 'Geroosterde pompoen (bijv. kabocha of flespompoen) gemengd met koji en zout, luchtdicht aangedrukt en verzwaard. Zoeter en sneller klaar dan sojamiso.',
+      en: 'Roasted pumpkin (e.g. kabocha or butternut) mixed with koji and salt, packed airtight and weighted. Sweeter and quicker than soybean miso.',
+    },
+    good: {
+      nl: 'Kleur wordt dieper oranje-bruin, vocht (tamari) bovenop, geur zoet, nootachtig en hartig.',
+      en: 'Colour deepens to orange-brown, liquid (tamari) on top, smell sweet, nutty and savoury.',
+    },
+    mistakes: {
+      nl: 'Te natte pompoen (te weinig geroosterd), luchtzakken, te weinig zout aan het oppervlak, te vaak openmaken.',
+      en: 'Pumpkin too wet (not roasted enough), air pockets, too little salt on the surface, opening it too often.',
     },
   },
 ];

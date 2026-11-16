@@ -16,6 +16,45 @@ const S = {
       <path d="M60 34 C68 26 78 26 82 30 C76 36 66 36 60 34Z M60 34 C54 24 46 22 40 26 C46 32 54 34 60 34Z" fill="#5f8f3a"/>`,
     extra: `<path d="M28 84 C44 96 76 96 92 84 L94 92 C76 104 44 104 26 92Z" fill="#f08a3c"/><path d="M84 92 l6 14 l6 -3 l-5 -12Z" fill="#e0742a"/>`,
   },
+  pinehot: {
+    top: 22, faceY: 78,
+    body: `<path d="M24 38 C40 30 50 34 60 22 C70 34 80 30 96 38 C82 44 70 42 60 46 C50 42 38 44 24 38Z" fill="#3f9b4a"/>
+      <ellipse cx="60" cy="80" rx="32" ry="34" fill="#f7a531"/>
+      <path d="M36 60 L84 104 M30 80 L68 112 M48 50 L92 90 M84 60 L36 104 M90 80 L52 112 M72 50 L28 90" stroke="#e0742a" stroke-width="2" opacity=".6"/>`,
+    extra: `<path d="M44 66 L54 70 M76 66 L66 70" stroke="#4a1a10" stroke-width="3" stroke-linecap="round"/>
+      <g transform="translate(94 72) rotate(20)"><path d="M0 0 C8 4 9 18 2 28 C0 31 -4 32 -5 30 C0 22 1 10 -3 2Z" fill="#d62d20"/><path d="M-1 1 C0 -4 3 -6 6 -7" stroke="#3d8b37" stroke-width="3" fill="none" stroke-linecap="round"/></g>`,
+  },
+  saucebottle: {
+    top: 10, faceY: 66, lidless: true,
+    body: `<path d="M52 12 H68 V30 C68 36 88 42 88 58 V106 C88 111 84 114 79 114 H41 C36 114 32 111 32 106 V58 C32 42 52 36 52 30Z" fill="#e2412b"/>
+      <rect x="49" y="6" width="22" height="10" rx="3" fill="#2f2a26"/>
+      <rect x="38" y="82" width="44" height="24" rx="5" fill="#fff4e0"/>
+      <path d="M60 86 C66 92 66 98 60 102 C54 98 55 93 60 86Z" fill="#f08a3c"/>
+      <path d="M40 48 C42 44 46 40 50 38" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".45"/>`,
+    extra: '',
+  },
+  pumpkin: {
+    top: 34, faceY: 72,
+    body: `<path d="M60 38 C58 30 60 24 66 20" fill="none" stroke="#6b4a2b" stroke-width="5" stroke-linecap="round"/>
+      <ellipse cx="38" cy="76" rx="22" ry="34" fill="#de7428"/><ellipse cx="82" cy="76" rx="22" ry="34" fill="#de7428"/>
+      <ellipse cx="60" cy="76" rx="26" ry="38" fill="#ef8a35"/>
+      <path d="M30 56 C46 50 74 50 90 56 L90 64 C74 58 46 58 30 64Z" fill="#c0392b"/>
+      <path d="M90 58 L102 52 M90 62 L100 68" stroke="#c0392b" stroke-width="4" stroke-linecap="round"/>`,
+    extra: `<path d="M50 86 C53 98 56 104 60 108 C62 102 66 98 70 86 C64 90 56 90 50 86Z" fill="#f4f1ea"/>`,
+  },
+  dillpickle: {
+    top: 26, faceY: 66, wobble: true,
+    body: `<rect x="34" y="26" width="52" height="86" rx="26" fill="#5c8a35"/>
+      <g fill="#46702a"><circle cx="44" cy="44" r="3"/><circle cx="76" cy="52" r="3"/><circle cx="42" cy="96" r="3"/><circle cx="78" cy="94" r="3"/><circle cx="60" cy="104" r="2.5"/></g>`,
+    extra: `<g stroke="#7cb342" stroke-width="2" stroke-linecap="round" fill="none"><path d="M60 26 C60 16 64 8 70 4"/><path d="M62 18 l-8 -6 M63 14 l-6 -8 M65 10 l2 -8 M66 12 l8 -4 M64 16 l9 0 M62 20 l7 4"/></g>`,
+  },
+  sprout: {
+    top: 38, faceY: 74,
+    body: `<circle cx="60" cy="76" r="34" fill="#86b44f"/>
+      <path d="M28 70 C40 52 80 52 92 70 M32 92 C44 80 76 80 88 92 M60 42 C52 58 52 96 60 110" fill="none" stroke="#5f8f33" stroke-width="2.5" stroke-linecap="round"/>
+      <g fill="#c8372d"><circle cx="40" cy="100" r="1.8"/><circle cx="82" cy="100" r="1.8"/><circle cx="72" cy="50" r="1.6"/><circle cx="46" cy="52" r="1.6"/></g>`,
+    extra: `<ellipse cx="44" cy="84" rx="6" ry="4" fill="#ff5f6d" opacity=".75"/><ellipse cx="76" cy="84" rx="6" ry="4" fill="#ff5f6d" opacity=".75"/>`,
+  },
   kimchi: {
     top: 32, faceY: 72,
     body: `<ellipse cx="60" cy="72" rx="36" ry="40" fill="#f0875a"/>

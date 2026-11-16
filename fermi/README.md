@@ -32,7 +32,7 @@ draait geen service worker en kun je niet installeren.
 
 | Bestand | Inhoud |
 | --- | --- |
-| `js/templates.js` | 15 fermentatie-templates (zout, duur, burp-ritme, uitleg, fouten), NL/EN |
+| `js/templates.js` | 20 fermentatie-templates (zout, duur, burp-ritme, uitleg, fouten), NL/EN |
 | `js/logic.js` | Pure logica: status, burp-schema, stemming, urgentie, stil-uur, temperatuur, oogst, F2, badges, CSV |
 | `js/ingredients.js` | Eigen ferment: ingrediëntendatabase, specerijen met smaakhint, afleiding van methode/zout/duur/burp, veiligheidscheck, seizoen en avatar |
 | `js/characters.js` | SVG-karakter per soort (ook gegenereerde avatars); gezicht en extra's volgen de stemming |
