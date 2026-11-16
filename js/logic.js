@@ -40,6 +40,7 @@ export function jarFromTemplate(tpl, fields = {}, now = Date.now()) {
     long: !!tpl.long,
     continent: tpl.continent,
     avatar: tpl.avatar || null,
+    tempFixed: !!tpl.tempFixed,
     recipe: tpl.recipe || null,
     nextPhase: tpl.nextPhase || null,
     status: 'active',
@@ -71,7 +72,8 @@ export function saltWarning(salt, pct) {
 export function progress(jar, now = Date.now()) {
   const start = ts(jar.startedAt);
   const elapsedH = Math.max(0, (now - start) / HOUR);
-  const f = tempFactor(jar.ambientTemp);
+  // Vaste temperatuur (bijv. yoghurt op 43 °C): de duur schuift niet mee.
+  const f = jar.tempFixed ? 1 : tempFactor(jar.ambientTemp);
   const minH = jar.minH * f;
   const maxH = jar.maxH * f;
   const harvestH = minH + (maxH - minH) / 2;

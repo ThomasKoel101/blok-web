@@ -29,7 +29,7 @@ function message(jar, type, urgent) {
 }
 
 function options(jar, type, urgent, extra = {}) {
-  const canBurp = ['burp', 'shake', 'check'].includes(type);
+  const canBurp = ['burp', 'shake', 'check', 'feed', 'stir'].includes(type);
   return {
     body: message(jar, type, urgent),
     tag: `${jar.id}:${type}`,
@@ -38,7 +38,7 @@ function options(jar, type, urgent, extra = {}) {
     requireInteraction: urgent,
     renotify: urgent,
     data: { jarId: jar.id, type },
-    actions: canBurp ? [{ action: 'burp', title: t(type === 'burp' ? 'doBurp' : type === 'shake' ? 'doShake' : 'doCheck') }] : [],
+    actions: canBurp ? [{ action: 'burp', title: t({ burp: 'doBurp', shake: 'doShake', check: 'doCheck', feed: 'doFeed', stir: 'doStir' }[type]) }] : [],
     ...extra,
   };
 }

@@ -1,4 +1,4 @@
-import { TEMPLATES, CONTINENTS, suggestName } from './templates.js';
+import { TEMPLATES, CONTINENTS, KINDS, SPEEDS, speedOf, suggestName } from './templates.js';
 import {
   HOUR, DAY, jarFromTemplate, saltGrams, saltWarning, progress, burpState, mood, bloat, tasks, today,
   tempFactor, harvest, startNextPhase, templateFromJar, fermidex, earnedBadges, burpStreak, toCSV,
@@ -28,7 +28,9 @@ const jarTpl = (jar) => tplById(jar.templateId) || (jar.recipe ? templateFromRec
 const repeatHref = (jar) => (tplById(jar.templateId) ? `#/new/${jar.templateId}?from=${jar.id}` : `#/custom?from=${jar.id}`);
 const nowISO = () => new Date().toISOString();
 const uid = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-const verb = (action) => t({ burp: 'doBurp', shake: 'doShake', check: 'doCheck' }[action] || 'doBurp');
+const verb = (action) => t({ burp: 'doBurp', shake: 'doShake', check: 'doCheck', feed: 'doFeed', stir: 'doStir' }[action] || 'doBurp');
+const CARE = ['burp', 'shake', 'check', 'feed', 'stir'];
+const careIcon = (action) => ({ burp: '💨', shake: '🫨', check: '👀', feed: '🥣', stir: '🥄' }[action] || '💨');
 const taskLabel = (type) => t(`task_${type}`);
 
 function persist() {
@@ -86,6 +88,7 @@ function render() {
   });
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   if (parts[0] === 'new' && parts[1]) bindNewForm();
+  if (parts[0] === 'new' && !parts[1]) bindPick();
   if (parts[0] === 'custom') bindCustom();
 }
 
@@ -124,7 +127,7 @@ function taskLine(jar, task, now) {
 }
 
 function taskButton(jar, task) {
-  if (['burp', 'shake', 'check'].includes(task.type)) return `<button class="btn primary" data-action="burp" data-id="${jar.id}">${verb(task.type)} ✓</button>`;
+  if (CARE.includes(task.type)) return `<button class="btn primary" data-action="burp" data-id="${jar.id}">${verb(task.type)} ✓</button>`;
   if (task.type === 'taste') return `<button class="btn" data-action="taste" data-id="${jar.id}">${t('doTaste')} 🥄</button>`;
   return `<button class="btn" data-action="harvest" data-id="${jar.id}">${t('doHarvest')} 🧺</button>`;
 }
@@ -189,8 +192,11 @@ function viewShelf(now) {
 
 // ---------- Nieuw potje: stap 1, template kiezen (K1) ----------
 
+const normText = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const tplSearchText = (tpl) => normText([tpl.name?.nl, tpl.name?.en, tpl.origin?.nl, tpl.origin?.en, tpl.character?.nl, tpl.character?.en, tpl.info?.nl, tpl.info?.en, tpl.kind && t(`kind_${tpl.kind}`)].join(' '));
+
 function tplCard(tpl) {
-  return `<article class="tpl-card">
+  return `<article class="tpl-card" data-search="${esc(tplSearchText(tpl))}">
       <a class="tpl-main" href="#/new/${tpl.id}">
         ${character(tpl.species, 'happy', { size: 64, lid: tpl.action === 'burp', avatar: tpl.avatar })}
         <span class="tpl-name">${esc(tl(tpl.name))}</span>
@@ -201,16 +207,20 @@ function tplCard(tpl) {
     </article>`;
 }
 
+let pickQuery = '';
+
 function viewNewPick(q) {
-  const c = q.get('c') || '';
+  const k = q.get('k') || '';
+  const sp = q.get('s') || '';
   const d = q.get('d') || '';
   const link = (key, val) => {
     const p = new URLSearchParams(q);
     if (val && p.get(key) !== val) p.set(key, val); else p.delete(key);
     return `#/new?${p}`;
   };
-  const chip = (key, val, label) => `<a class="chip${q.get(key) === val ? ' on' : ''}" href="${link(key, val)}">${label}</a>`;
-  const list = TEMPLATES.filter((x) => (!c || x.continent === c) && (!d || String(x.difficulty) === d));
+  const chip = (key, val, label) => `<a class="chip${q.get(key) === val ? ' on' : ''}" aria-pressed="${q.get(key) === val}" href="${link(key, val)}">${label}</a>`;
+  const list = TEMPLATES.filter((x) => (!k || x.kind === k) && (!sp || speedOf(x) === sp) && (!d || String(x.difficulty) === d));
+  const groups = KINDS.map((kind) => [kind, list.filter((x) => x.kind === kind)]).filter(([, l]) => l.length);
   return `${header(t('newTitle'), '#/today')}
     <p class="muted">${t('step', { n: 1 })} · ${t('pickTemplate')}</p>
     <a class="card custom-card" href="#/custom">
@@ -218,10 +228,43 @@ function viewNewPick(q) {
       <span><b>✨ ${t('customTitle')}</b><br><span class="muted small">${t('customCardSub')}</span></span>
     </a>
     ${state.customTemplates.length ? `<h2>${t('myTemplates')}</h2><div class="tpl-grid">${state.customTemplates.map(tplCard).join('')}</div>` : ''}
-    <div class="filters" role="group" aria-label="${t('filterContinent')}">${CONTINENTS.map((x) => chip('c', x, t(`continent_${x}`))).join('')}</div>
-    <div class="filters" role="group" aria-label="${t('filterDifficulty')}">${[1, 2, 3].map((x) => chip('d', String(x), t(`difficulty_${x}`))).join('')}</div>
-    <div class="tpl-grid">${list.map(tplCard).join('')}</div>
+    <label class="sr" for="tpl-search">${t('searchTemplates')}</label>
+    <input id="tpl-search" type="search" autocomplete="off" placeholder="🔍 ${t('searchTemplates')}">
+    <div class="filters" role="group" aria-label="${t('filterKind')}">${KINDS.map((x) => chip('k', x, t(`kind_${x}`))).join('')}</div>
+    <div class="filters" role="group" aria-label="${t('filterSpeed')}">${SPEEDS.map((x) => chip('s', x, t(`speed_${x}`))).join('')}${[1, 2, 3].map((x) => chip('d', String(x), t(`difficulty_${x}`))).join('')}</div>
+    <div id="tpl-groups">${groups.map(([kind, l]) => `<section class="tpl-group">
+      <h2>${t(`kind_${kind}`)} <span class="count-muted">${l.length}</span></h2>
+      <div class="tpl-grid">${l.map(tplCard).join('')}</div>
+    </section>`).join('')}</div>
+    <p id="tpl-empty" class="muted"${groups.length ? ' hidden' : ''}>${t('noResults')} <a href="#/custom">✨ ${t('customTitle')}</a></p>
     <p class="muted small">${t('templateDisclaimer')}</p>`;
+}
+
+// Zoeken filtert live zonder het scherm opnieuw te tekenen (focus blijft in het veld).
+function applyPickSearch() {
+  const query = normText(pickQuery.trim());
+  let any = false;
+  document.querySelectorAll('#tpl-groups .tpl-group').forEach((sec) => {
+    let visible = 0;
+    sec.querySelectorAll('.tpl-card').forEach((card) => {
+      const show = !query || query.split(/\s+/).every((w) => card.dataset.search.includes(w));
+      card.hidden = !show;
+      if (show) visible++;
+    });
+    sec.hidden = !visible;
+    sec.querySelector('.count-muted').textContent = visible;
+    if (visible) any = true;
+  });
+  const empty = document.getElementById('tpl-empty');
+  if (empty) empty.hidden = any;
+}
+
+function bindPick() {
+  const input = document.getElementById('tpl-search');
+  if (!input) return;
+  input.value = pickQuery;
+  input.addEventListener('input', () => { pickQuery = input.value; applyPickSearch(); });
+  applyPickSearch();
 }
 
 // ---------- Nieuw potje: stap 2, details (F1, F2, F3, F10) ----------
@@ -278,8 +321,9 @@ function viewNewDetails(tplId, q, now) {
         <div class="grid3">
           <label>${t(short ? 'fMinHours' : 'fMinDays')}<input type="number" name="min" min="1" value="${v.min}" required inputmode="numeric"></label>
           <label>${t(short ? 'fMaxHours' : 'fMaxDays')}<input type="number" name="max" min="1" value="${v.max}" required inputmode="numeric"></label>
-          <label>${t('fTemp')}<input type="number" name="ambientTemp" min="5" max="40" step="0.5" value="${esc(v.temp)}" inputmode="decimal"></label>
+          ${tpl.tempFixed ? `<input type="hidden" name="ambientTemp" value="${tpl.keepTemp}">` : `<label>${t('fTemp')}<input type="number" name="ambientTemp" min="5" max="40" step="0.5" value="${esc(v.temp)}" inputmode="decimal"></label>`}
         </div>
+        ${tpl.tempFixed ? `<p class="tip">🌡️ ${t('keepTemp', { t: tpl.keepTemp })}</p>` : ''}
         <output id="temp-out" class="muted small"></output>
         <p class="muted small">${t('burpPlan')}: ${esc(rhythmText(tpl))}</p>
       </fieldset>
@@ -302,7 +346,7 @@ function bindNewForm() {
       const w = saltWarning(tpl.salt, f.saltPct.value);
       document.getElementById('salt-warn').innerHTML = w ? `<p class="alert" role="alert">⚠️ ${t(w === 'low' ? 'saltLow' : 'saltHigh', { p: f.saltPct.value, min: tpl.salt.min })}</p>` : '';
     }
-    const fac = tempFactor(f.ambientTemp.value);
+    const fac = tpl.tempFixed ? 1 : tempFactor(f.ambientTemp.value);
     document.getElementById('temp-out').textContent = t('fTempEffect', { t: f.ambientTemp.value || 20, range: fmtRange(f.min.value * unit * fac, f.max.value * unit * fac) });
   };
   form.addEventListener('input', update);
@@ -367,7 +411,7 @@ function logEntries(jar) {
 function entryHtml(jar, e) {
   const when = fmtDate(Date.parse(e.at), true);
   let body = '';
-  if (e.kind === 'burp') body = `💨 ${verb(jar.action)}`;
+  if (e.kind === 'burp') body = `${careIcon(jar.action)} ${verb(jar.action)}`;
   else if (e.kind === 'event') body = `⭐ ${t(`ev_${e.event}`)}${e.to ? `: ${esc(tl(tplById(e.to)?.name))}` : ''}`;
   else {
     const obs = e.obs ? Object.entries(e.obs).filter(([, v]) => v).map(([k]) => `<span class="tag${['mold', 'offSmell'].includes(k) ? ' danger' : ''}">${t(`obs_${k}`)}</span>`).join('') : '';
@@ -397,7 +441,7 @@ function viewJar(id, now) {
     ${active ? `
       <section class="card">${progressBar(jar, now)}</section>
       ${jar.action !== 'none' && b ? `<section class="card burp-card${b.due ? ' due' : ''}${ts.some((x) => x.urgent) ? ' urgent' : ''}">
-        <button class="btn primary huge" data-action="burp" data-id="${jar.id}">💨 ${verb(jar.action)}</button>
+        <button class="btn primary huge" data-action="burp" data-id="${jar.id}">${careIcon(jar.action)} ${verb(jar.action)}</button>
         <div class="burp-info">
           <span>${t('lastBurp', { t: jar.burps.length ? fmtWhen(Date.parse(jar.burps[jar.burps.length - 1]), now) : t('never') })}</span>
           <span>${b.due ? `<b>${t('lateBy', { t: fmtDuration(Math.max(b.lateH, 0.02)) })}</b>` : t('nextBurp', { t: fmtWhen(b.dueAt, now) })}</span>
@@ -453,13 +497,18 @@ function viewDex(now) {
   const badges = earnedBadges(state.jars, allTemplates(), now);
   const streak = burpStreak(state.jars, now);
   return `${header(t('dexTitle'))}
-    <p class="muted">${t('dexIntro')} <b>${[...dex].filter((id) => TEMPLATES.some((x) => x.id === id)).length}/${TEMPLATES.length}</b></p>
-    <div class="dex">${TEMPLATES.map((tpl) => {
-      const got = dex.has(tpl.id);
-      return `<a class="dex-item${got ? '' : ' locked'}" href="#/template/${tpl.id}">
-        ${character(tpl.species, got ? 'proud' : 'happy', { size: 72, label: got ? tl(tpl.name) : t('dexLocked') })}
-        <span>${got ? esc(tl(tpl.name)) : '???'}</span><small>${got ? esc(tl(tpl.origin)) : t('dexLocked')}</small></a>`;
-    }).join('')}</div>
+    <p class="muted">${t('dexIntroWorld')} <b>${[...dex].filter((id) => TEMPLATES.some((x) => x.id === id)).length}/${TEMPLATES.length}</b></p>
+    ${CONTINENTS.map((c) => {
+      const list = TEMPLATES.filter((x) => x.continent === c);
+      const got = list.filter((x) => dex.has(x.id)).length;
+      return `<h2>${t(`continent_${c}`)} <span class="count-muted">${got}/${list.length}</span></h2>
+      <div class="dex">${list.map((tpl) => {
+        const has = dex.has(tpl.id);
+        return `<a class="dex-item${has ? '' : ' locked'}" href="#/template/${tpl.id}">
+          ${character(tpl.species, has ? 'proud' : 'happy', { size: 72, avatar: tpl.avatar, label: has ? tl(tpl.name) : t('dexLocked') })}
+          <span>${has ? esc(tl(tpl.name)) : '???'}</span><small>${has ? esc(tl(tpl.origin)) : t('dexLocked')}</small></a>`;
+      }).join('')}</div>`;
+    }).join('')}
     ${state.jars.some((j) => j.recipe) ? `<h2>✨ ${t('dexOwn')}</h2><div class="mini-row">${state.jars.filter((j) => j.recipe).map((j) => `<a class="mini" href="#/jar/${j.id}">${character('custom', j.harvestedAt ? 'proud' : 'happy', { size: 56, avatar: j.avatar })}<span>${esc(j.name)}</span><small>${esc(j.recipe.items.map((i) => tl(i.name)).join(' + '))}</small></a>`).join('')}</div>` : ''}
     <h2>${t('badgesTitle')}</h2>
     ${streak ? `<p class="streak">🔥 ${t('streak', { n: streak })}</p>` : ''}
@@ -1003,7 +1052,7 @@ function doBurp(id) {
   if (!jar) return;
   const at = nowISO();
   updateJar(id, (j) => ({ ...j, burps: [...j.burps, at] }));
-  toast(`💨 ${t('burped', { name: jar.name })}`, () => updateJar(id, (j) => ({ ...j, burps: j.burps.filter((b) => b !== at) })));
+  toast(jar.action === 'burp' ? `💨 ${t('burped', { name: jar.name })}` : `${careIcon(jar.action)} ${jar.name}: ${verb(jar.action)}`, () => updateJar(id, (j) => ({ ...j, burps: j.burps.filter((b) => b !== at) })));
 }
 
 let toastTimer;
