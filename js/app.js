@@ -1,10 +1,10 @@
 import { TEMPLATES, CONTINENTS, KINDS, SPEEDS, speedOf, suggestName } from './templates.js';
 import {
-  HOUR, DAY, jarFromTemplate, saltGrams, saltWarning, progress, burpState, mood, bloat, tasks, today,
+  HOUR, DAY, starterPeak, starterFeedH, jarFromTemplate, saltGrams, saltWarning, progress, burpState, mood, bloat, tasks, today,
   tempFactor, harvest, startNextPhase, templateFromJar, fermidex, earnedBadges, burpStreak, toCSV,
 } from './logic.js';
 import { character } from './characters.js';
-import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, fmtShortDate, fmtLongDate, monthName } from './i18n.js';
+import { t, tl, setLang, getLang, LANGS, fmtDuration, fmtRange, fmtDate, fmtWhen, fmtShortDate, fmtLongDate, fmtTime, monthName } from './i18n.js';
 import {
   CATEGORIES, SPICES, searchIngredients, makeItem, customItem, mainItem, deriveRecipe, recipeSalt, recipeWarnings,
   inSeason, seasonRange, makeAvatar, suggestCustomName, recipeTemplate, templateFromRecipeJar, INGREDIENTS,
@@ -14,6 +14,18 @@ import * as notify from './notify.js';
 
 let state = load();
 setLang(state.settings.lang);
+// Demo-potjes die vóór het demo-label geladen zijn herkennen: ze zijn allemaal op hetzelfde
+// moment aangemaakt en dragen de vaste demonamen. Zo kun je ze later weer verwijderen.
+const DEMO_NAMES = new Set(['Klaas Kool', 'Kim Chi', 'Plop', 'Scoby Doo', 'Sensei Soja', 'Pepe Pikant', 'Zonnetje', 'Don Curtido', 'Baron Rode', 'Kapitein Kraut', 'Gochu Guus']);
+{
+  const groups = new Map();
+  for (const j of state.jars) if (j.demo === undefined && DEMO_NAMES.has(j.name)) groups.set(j.createdAt, [...(groups.get(j.createdAt) || []), j]);
+  for (const g of groups.values()) if (g.length >= 7) g.forEach((j) => { j.demo = true; });
+}
+// Bestaande zuurdesemstarters overzetten naar het starter-ritme (aanrecht/koelkast, geen oogst).
+for (const j of state.jars) {
+  if (j.templateId === 'sourdough' && j.starter === undefined) Object.assign(j, { starter: true, location: 'counter', feedCounterH: 24, feedFridgeH: 7 * 24 });
+}
 
 const main = document.getElementById('main');
 const modal = document.getElementById('modal');
@@ -102,6 +114,7 @@ function jarChar(jar, now, size = 96) {
 function stageText(jar, now) {
   if (jar.status === 'fridge') return t('status_fridge');
   if (jar.status === 'done') return t('status_done');
+  if (jar.starter) return progress(jar, now).stage === 'active' ? t('starterEstablishing') : t(jar.location === 'fridge' ? 'loc_fridge' : 'loc_counter');
   return t(`stage_${progress(jar, now).stage}`);
 }
 
@@ -304,6 +317,7 @@ function everyText(h) {
   return t('everyNHours', { n: h });
 }
 function rhythmShort(x) {
+  if (x.starter && x.location) return `${taskLabel('feed')} ${everyText(starterFeedH(x))}`;
   if (!x.burp?.length || x.action === 'none') return t('rhythmNone');
   return `${taskLabel(x.action)} ${everyText(x.burp[0].everyH)}`;
 }
@@ -381,6 +395,7 @@ function viewNewDetails(tplId, q, now) {
 
       ${tpl.pressure ? `<p class="note warn">⚠️ ${esc(tl(tpl.mistakes))}</p>` : ''}
       ${tpl.veg ? `<p class="note">🪨 ${t('vegTipShort')}</p>` : ''}
+      ${tpl.starter ? `<p class="note">🍞 ${t('starterCreateNote')}</p>` : ''}
 
       <div class="sticky-cta"><button class="btn primary big" type="submit">${t('create')}</button></div>
     </form>`;
@@ -493,18 +508,44 @@ function progressPanel(jar, now) {
   return `<section class="panel">
     <div class="progress-head">
       <p><span class="big-num">${t(short ? 'progressHour' : 'progressDay', { d })}</span> <span class="muted">${of}</span></p>
-      <span class="pill stage-${p.stage}">${t(`stage_${p.stage}`)}</span>
+      <span class="pill stage-${p.stage}">${jar.starter ? t('starterEstablishing') : t(`stage_${p.stage}`)}</span>
     </div>
     <div class="bar stage-${p.stage}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p.pct * 100)}" aria-label="${esc(label)}">
       <div class="bar-zone" style="left:${p.minPct * 100}%"></div>
       <div class="bar-fill" style="width:${p.pct * 100}%"></div>
     </div>
-    <div class="milestones">
+    ${jar.starter ? `<div class="milestones two">
+      <span><b>${t('msStart')}</b>${fmtShortDate(start, now)}</span>
+      <span><b>${t('msActive')}</b>${fmtShortDate(p.tasteAt, now)}–${fmtShortDate(p.endAt, now)}</span>
+    </div>` : `<div class="milestones">
       <span><b>${t('msStart')}</b>${short ? fmtWhen(start, now) : fmtShortDate(start, now)}</span>
       <span><b>${t('msTaste')}</b>${short ? fmtWhen(p.tasteAt, now) : fmtShortDate(p.tasteAt, now)}</span>
       <span><b>${t('msHarvest')}</b>${short ? fmtWhen(p.harvestAt, now) : fmtShortDate(p.harvestAt, now)}</span>
-    </div>
+    </div>`}
+    ${jar.starter ? `<p class="field-hint">${t('starterEstablishHint')}</p>` : ''}
   </section>`;
+}
+
+// Starter: plek (aanrecht/koelkast), piekmoment en bakken.
+function starterControls(jar, now) {
+  const fridge = jar.location === 'fridge';
+  const peak = starterPeak(jar, now);
+  const every = (h) => (h % 24 === 0 ? (h === 24 ? t('everyDay') : t('everyNDays', { n: h / 24 })) : t('everyNHours', { n: h }));
+  return `<section class="panel">
+    <h2 class="panel-title">📍 ${t('whereTitle')}</h2>
+    <div class="segmented" role="group" aria-label="${t('whereTitle')}">
+      <button type="button" class="${fridge ? '' : 'on'}" aria-pressed="${!fridge}" data-action="set-location" data-loc="counter" data-id="${jar.id}">🏠 ${t('loc_counter')}</button>
+      <button type="button" class="${fridge ? 'on' : ''}" aria-pressed="${fridge}" data-action="set-location" data-loc="fridge" data-id="${jar.id}">❄️ ${t('loc_fridge')}</button>
+    </div>
+    <p class="field-hint">${fridge ? t('starterFridgeText', { every: every(jar.feedFridgeH || 168) }) : t('starterCounterText', { every: every(jar.feedCounterH || 24) })}</p>
+    ${peak && (peak.now || peak.soon) ? `<p class="note">🍞 ${t('peakAt', { from: fmtTime(peak.from), to: fmtTime(peak.to) })}</p>` : ''}
+  </section>
+  <div class="action-pair">
+    ${fridge
+      ? `<button class="btn primary big wide" data-action="set-location" data-loc="counter" data-id="${jar.id}">🌡️ ${t('fromFridge')}</button>`
+      : `<button class="btn big" data-action="set-location" data-loc="fridge" data-id="${jar.id}">❄️ ${t('toFridge')}</button>
+         <button class="btn big${peak?.now ? ' primary' : ''}" data-action="baked" data-id="${jar.id}">🍞 ${t('baked')}</button>`}
+  </div>`;
 }
 
 const row = (label, value) => `<div class="row-item"><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -534,9 +575,9 @@ function viewJar(id, now) {
     </section>
     ${flagged ? `<div class="safety-banner" role="alert"><strong>${t('moldAlert')}</strong><a href="#/safety">${t('openChecker')} →</a></div>` : ''}
     ${active ? `
-      ${progressPanel(jar, now)}
+      ${jar.starter && p.stage !== 'active' ? '' : progressPanel(jar, now)}
       ${jar.action !== 'none' && b ? `<section class="panel care${b.due ? ' due' : ''}${ts.some((x) => x.urgent) ? ' urgent' : ''}">
-        <button class="btn primary huge" data-action="burp" data-id="${jar.id}">${careIcon(jar.action)} ${verb(jar.action)}</button>
+        <button class="btn huge${jar.starter && !b.due ? '' : ' primary'}" data-action="burp" data-id="${jar.id}">${careIcon(jar.action)} ${verb(jar.action)}</button>
         <div class="stat-row two">
           <div class="stat"><span class="stat-label">${t('lastLabel')}</span><span class="stat-value">${lastCare ? fmtWhen(lastCare, now) : t('notYet')}</span></div>
           ${b.due
@@ -545,10 +586,10 @@ function viewJar(id, now) {
         </div>
         ${ts.some((x) => x.pressure) ? `<p class="note warn" role="alert">⚠️ ${t('pressureWarn')}</p>` : ''}
       </section>` : ''}
-      <div class="action-pair">
+      ${jar.starter ? starterControls(jar, now) : `<div class="action-pair">
         <button class="btn big${p.stage !== 'active' ? ' primary' : ''}" data-action="taste" data-id="${jar.id}">🥄 ${t('doTaste')}</button>
         <button class="btn big${['harvestReady', 'overdue'].includes(p.stage) ? ' primary' : ''}" data-action="harvest" data-id="${jar.id}">🧺 ${t('doHarvest')}</button>
-      </div>
+      </div>`}
       ${nextTpl && p.stage !== 'active' ? `<section class="panel"><p>${t('nextPhaseText')}</p><button class="btn" data-action="phase" data-id="${jar.id}">🍾 ${t('nextPhase', { name: esc(tl(nextTpl.name)) })}</button></section>` : ''}
       ${jar.veg ? `<p class="note">🪨 ${t('vegTipShort')}</p>` : ''}
     ` : `
@@ -714,7 +755,9 @@ function viewMore() {
       ${btnRow('export-csv', '📄', t('exportCsv'))}
       ${btnRow('export-json', '💾', t('exportJson'))}
       <label class="list-row"><span class="list-icon" aria-hidden="true">📥</span><span class="list-main"><span class="list-title">${t('importJson')}</span></span><span class="chev" aria-hidden="true">›</span><input type="file" accept="application/json,.json" data-action="import" class="sr"></label>
-      ${btnRow('demo', '🧪', t('loadDemo'))}
+      ${state.jars.some((j) => j.demo)
+        ? `<button class="list-row" type="button" data-action="demo-remove"><span class="list-icon" aria-hidden="true">🧹</span><span class="list-main"><span class="list-title danger-text">${t('removeDemo')}</span><span class="list-sub">${t('removeDemoSub', { n: state.jars.filter((j) => j.demo).length })}</span></span><span class="chev" aria-hidden="true">›</span></button>`
+        : btnRow('demo', '🧪', t('loadDemo'))}
     </section>
     <h2>${t('about')}</h2>
     <section class="panel">
@@ -1132,6 +1175,8 @@ function dialogEdit(jar) {
       ${field(t('planTemp'), `<input type="number" name="ambientTemp" step="0.5" min="5" max="40" value="${jar.ambientTemp ?? 20}" inputmode="decimal">`, '°C')}
       ${field(t(short ? 'fMinHours' : 'fMinDays'), `<input type="number" name="min" min="1" value="${Math.round(jar.minH / unit)}" inputmode="numeric">`, u)}
       ${field(t(short ? 'fMaxHours' : 'fMaxDays'), `<input type="number" name="max" min="1" value="${Math.round(jar.maxH / unit)}" inputmode="numeric">`, u)}
+      ${jar.starter ? `${field(t('feedCounterEvery'), `<input type="number" name="feedCounterH" min="4" step="1" value="${jar.feedCounterH || 24}" inputmode="numeric">`, t('hours'))}
+      ${field(t('feedFridgeEvery'), `<input type="number" name="feedFridgeD" min="1" step="1" value="${Math.round((jar.feedFridgeH || 168) / 24)}" inputmode="numeric">`, t('days'))}` : ''}
     </div>
     <div class="modal-actions"><button class="btn primary big" value="ok">${t('save')}</button></div>`,
   (form) => {
@@ -1144,6 +1189,7 @@ function dialogEdit(jar) {
       minH,
       maxH: Math.max(minH, Number(f.max.value) * unit),
       ambientTemp: f.ambientTemp.value === '' ? null : Number(f.ambientTemp.value),
+      ...(j.starter ? { feedCounterH: Math.max(4, Number(f.feedCounterH.value) || 24), feedFridgeH: Math.max(1, Number(f.feedFridgeD.value) || 7) * 24 } : {}),
     }));
   });
 }
@@ -1244,7 +1290,7 @@ function demoJars(now = Date.now()) {
   const plan = { ...deriveRecipe(items) };
   const own = jarFromTemplate(recipeTemplate({ items, spices, plan, avatar: makeAvatar(items, spices, 3), name: 'Baron Rode' }), { name: 'Baron Rode', startedAt: now - 2 * DAY, saltPct: plan.saltPct, vegG: 950, waterG: 0 }, now);
   own.burps = [iso(now - 26 * HOUR), iso(now - 3 * HOUR)];
-  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, own, old1, old2];
+  return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, own, old1, old2].map((j) => ({ ...j, demo: true }));
 }
 
 // Installeren als app (Android/Chrome/Edge geven een eigen prompt; iOS via Delen).
@@ -1275,6 +1321,17 @@ document.addEventListener('click', async (e) => {
       toast(`🍾 ${t('ev_phase')}`);
       break;
     }
+    case 'set-location': {
+      const loc = el.dataset.loc;
+      if (jar.location === loc) break;
+      updateJar(id, (j) => ({ ...j, location: loc, movedAt: nowISO(), log: [...j.log, { id: uid('e'), at: nowISO(), kind: 'event', event: loc === 'fridge' ? 'toFridge' : 'fromFridge' }] }));
+      toast(loc === 'fridge' ? `❄️ ${t('toFridgeToast', { name: jar.name })}` : `🌡️ ${t('fromFridgeToast')}`);
+      break;
+    }
+    case 'baked':
+      updateJar(id, (j) => ({ ...j, log: [...j.log, { id: uid('e'), at: nowISO(), kind: 'event', event: 'baked' }] }));
+      toast(`🍞 ${t('ev_baked')}!`);
+      break;
     case 'finish': updateJar(id, (j) => ({ ...j, status: 'done', finishedAt: nowISO() })); break;
     case 'delete':
       openModal(`${modalHead('🗑️', t('confirmDelete'), esc(jar.name))}
@@ -1298,6 +1355,14 @@ document.addEventListener('click', async (e) => {
     case 'copy-export': {
       const area = document.getElementById('export-text');
       try { await navigator.clipboard.writeText(area.value); toast('📋 OK'); } catch { area.focus(); area.select(); }
+      break;
+    }
+    case 'demo-remove': {
+      const n = state.jars.filter((j) => j.demo).length;
+      openModal(`${modalHead('🧹', t('removeDemo'), t('removeDemoSub', { n }))}
+        <p>${t('removeDemoText')}</p>
+        <div class="modal-actions two">${cancelBtn()}<button class="btn primary danger-fill" value="ok">${t('removeDemoOk')}</button></div>`,
+      () => { commit((s) => { s.jars = s.jars.filter((j) => !j.demo); }); toast(`🧹 ${t('removeDemoDone', { n })}`); });
       break;
     }
     case 'demo': commit((s) => { s.jars = [...s.jars, ...demoJars()]; }, { rerender: false }); location.hash = '#/today'; break;

@@ -548,3 +548,15 @@ dialog { padding: 0; }
 .modal-body .photo-drop { display: flex; margin: 0; font-size: 1rem; }
 .modal-body .chip.toggle { display: inline-flex; margin: 0; font-size: .9rem; }
 main > .stat-row .stat { background: var(--surface); box-shadow: var(--shadow); }
+
+/* Starter (zuurdesem) */
+.segmented button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: none; border-radius: 10px; background: transparent; font: inherit; font-weight: 700; color: var(--muted); cursor: pointer; }
+.segmented button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.milestones.two { grid-template-columns: 1fr 1fr; }
+.milestones.two span:last-child { text-align: right; }
+.action-pair .btn.wide { grid-column: 1 / -1; }
+.mood-chilling .char-body { filter: saturate(.75) hue-rotate(-10deg); }
+.mood-peak .char-anim { animation: hop 2.2s ease-in-out infinite; }
+.mood-hungry .char-anim { animation: wiggle 1.4s ease-in-out infinite; }
+.pill.stage-established { background: var(--harvest-bg); color: var(--harvest-fg); }
+.danger-text { color: var(--warn); }

@@ -153,6 +153,9 @@ const S = {
 const eye = (x, y, r = 3.6) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#2b2118"/><circle cx="${x + 1.2}" cy="${y - 1.2}" r="1.1" fill="#fff"/>`;
 
 function face(mood, y) {
+  if (mood === 'hungry') mood = 'curious';
+  if (mood === 'chilling') mood = 'retired';
+  if (mood === 'peak') mood = 'proud';
   const L = 49;
   const R = 71;
   const ink = 'stroke="#2b2118" stroke-width="3" stroke-linecap="round" fill="none"';
@@ -184,6 +187,9 @@ function face(mood, y) {
 }
 
 function moodExtras(mood, top, lidded) {
+  if (mood === 'chilling') mood = 'retired';
+  if (mood === 'peak') mood = 'proud';
+  if (mood === 'hungry') return `<text x="92" y="${top + 10}" font-size="16" aria-hidden="true">🍽️</text>`;
   switch (mood) {
     case 'sleepy':
       return `<text x="88" y="${top + 4}" class="zzz" font-size="14" font-weight="700" fill="#7a8aa6">z</text><text x="98" y="${top - 6}" class="zzz z2" font-size="11" font-weight="700" fill="#7a8aa6">z</text>`;

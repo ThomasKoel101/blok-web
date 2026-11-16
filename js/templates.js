@@ -658,7 +658,7 @@ export const TEMPLATES = [
     id: 'sourdough', species: 'custom', avatar: av('bulb', '#efe2bd', '#c48a52', ['#c48a52'], 'beret'), continent: 'europe', difficulty: 2, veg: false,
     name: { nl: 'Zuurdesemstarter', en: 'Sourdough starter' }, origin: { nl: 'Europa / wereldwijd', en: 'Europe / worldwide' },
     salt: null, minH: 5 * H, maxH: 10 * H,
-    action: 'feed', burp: [{ fromH: 0, everyH: 24 }], tasteEveryH: 24, fridgeDays: 365,
+    action: 'feed', burp: [{ fromH: 0, everyH: 24 }], tasteEveryH: 24, fridgeDays: 365, starter: true, feedCounterH: 24, feedFridgeH: 7 * 24,
     character: { nl: 'Deegbolletje met baret', en: 'Dough ball in a beret' },
     names: ['Desem Dirk', 'Bolle Bram', 'Starter Sien', 'Rogge Rob', 'Gistje Gijs'],
     info: { nl: 'Bloem (liefst volkoren of rogge) en water, dagelijks voeden: deel weggooien, bijvullen met bloem en water. Klaar als hij binnen 4 tot 8 uur verdubbelt.', en: 'Flour (ideally wholemeal or rye) and water, fed daily: discard some, top up with flour and water. Ready when it doubles within 4 to 8 hours.' },
