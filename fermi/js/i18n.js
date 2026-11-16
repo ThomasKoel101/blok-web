@@ -306,3 +306,7 @@ export function fmtLongDate(ms) {
   const s = new Date(ms).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+export function monthName(m) {
+  return new Date(2026, m - 1, 1).toLocaleString(locale(), { month: 'short' }).replace('.', '');
+}
