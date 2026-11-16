@@ -1173,7 +1173,21 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
 });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').then(() => { swReady = true; if (route().parts[0] === 'more') render(); notify.scheduleAhead(state); }).catch(() => {});
+  // Nieuwe versie actief geworden? Eén keer herladen, zodat je hem meteen ziet.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading || modal.open || isFormView()) return;
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    swReady = true;
+    if (route().parts[0] === 'more') render();
+    notify.scheduleAhead(state);
+    // Een app op het beginscherm blijft vaak lang open; bij terugkeren naar de app op updates controleren.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
 }
 
 render();
