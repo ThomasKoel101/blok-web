@@ -186,17 +186,25 @@ function viewShelf(now) {
   const perPlank = 3;
   const planks = [];
   for (let i = 0; i < Math.max(1, Math.ceil(active.length / perPlank)); i++) planks.push(active.slice(i * perPlank, i * perPlank + perPlank));
-  const spot = (jar) => `<a class="spot" href="#/jar/${jar.id}">
+  const spot = (jar) => {
+    const task = tasks(jar, now)[0];
+    return `<a class="spot" href="#/jar/${jar.id}">
       ${jarChar(jar, now, 92)}
       <span class="spot-name">${esc(jar.name)}</span>
-      <span class="spot-status">${stageText(jar, now)}${tasks(jar, now).length ? ` · <b>${taskLabel(tasks(jar, now)[0].type)}</b>` : ''}</span>
+      <span class="spot-status${task ? ' needs' : ''}">${task ? taskLabel(task.type) : stageText(jar, now)}</span>
     </a>`;
+  };
   return `${header(t('shelfTitle'))}
+    <p class="eyebrow">${active.length} ${active.length === 1 ? (getLang() === 'nl' ? 'potje' : 'jar') : (getLang() === 'nl' ? 'potjes' : 'jars')}${fridge.length ? ` · ${fridge.length} ❄️` : ''}</p>
     <div class="shelf">
-      ${active.length ? planks.map((row) => `<div class="plank"><div class="plank-items">${row.map(spot).join('')}</div><div class="plank-wood"></div></div>`).join('')
+      ${active.length ? planks.map((r) => `<div class="plank"><div class="plank-items">${r.map(spot).join('')}</div><div class="plank-wood"></div></div>`).join('')
         : `<div class="plank"><div class="plank-items empty-plank"><p>${t('shelfEmpty')}</p><a class="btn primary" href="#/new">${t('startFirst')}</a></div><div class="plank-wood"></div></div>`}
     </div>
-    ${fridge.length ? `<h2>❄️ ${t('shelfFridge')}</h2><div class="fridge">${fridge.map((jar) => `<a class="mini" href="#/jar/${jar.id}">${jarChar(jar, now, 56)}<span>${esc(jar.name)}</span><small>${t('bestBefore', { d: fmtDate(Date.parse(jar.bestBefore)) })}</small></a>`).join('')}</div>` : ''}`;
+    ${fridge.length ? `<h2>❄️ ${t('shelfFridge')}</h2><nav class="panel list">${fridge.map((jar) => `<a class="list-row" href="#/jar/${jar.id}">
+        ${jarChar(jar, now, 44)}
+        <span class="list-main"><span class="list-title">${esc(jar.name)}</span><span class="list-sub">${t('bestBefore', { d: fmtShortDate(Date.parse(jar.bestBefore), now) })}</span></span>
+        ${jar.rating ? `<span class="stars-inline small" aria-label="${jar.rating}/5">${stars(jar.rating)}</span>` : ''}<span class="chev" aria-hidden="true">›</span>
+      </a>`).join('')}</nav>` : ''}`;
 }
 
 // ---------- Nieuw potje: stap 1, template kiezen (K1) ----------
@@ -431,23 +439,23 @@ function viewTemplate(id) {
   const tpl = tplById(id);
   if (!tpl) return viewNewPick(new URLSearchParams());
   return `${header(tl(tpl.name), '#/new')}
-    <section class="tpl-detail">
-      <div class="center">${character(tpl.species, 'happy', { size: 140, lid: tpl.action === 'burp', avatar: tpl.avatar })}<p class="muted">${esc(tl(tpl.character))} · ${esc(tl(tpl.origin))}</p></div>
-      <dl class="facts">
-        <dt>${t('salt')}</dt><dd>${tpl.salt ? `${tpl.salt.def}% (${tpl.salt.min}–${tpl.salt.max}%)` : 'n.v.t.'}</dd>
-        <dt>${t('duration')}</dt><dd>${fmtRange(tpl.minH, tpl.maxH)}</dd>
-        <dt>${t('burpPlan')}</dt><dd>${esc(rhythmText(tpl))}</dd>
-        <dt>${t('filterDifficulty')}</dt><dd>${t(`difficulty_${tpl.difficulty}`)}</dd>
-      </dl>
-      <p>${esc(tl(tpl.info))}</p>
-      <h3>✅ ${getLang() === 'nl' ? 'Zo hoort het eruit te zien en te ruiken' : 'What good looks and smells like'}</h3>
-      <p>${esc(tl(tpl.good))}</p>
-      <h3>⚠️ ${getLang() === 'nl' ? 'Veelgemaakte fouten' : 'Common mistakes'}</h3>
-      <p>${esc(tl(tpl.mistakes))}</p>
-      ${tpl.veg ? `<p class="tip">🪨 ${t('vegTip')}</p>` : ''}
-      <p class="muted small">${t('templateDisclaimer')}</p>
-      <a class="btn primary big" href="#/new/${tpl.id}">${t('create')}</a>
-    </section>`;
+    <section class="create-hero">
+      ${character(tpl.species, 'happy', { size: 150, lid: tpl.action === 'burp', avatar: tpl.avatar })}
+      <p class="eyebrow">${esc(tl(tpl.character))} · ${esc(tl(tpl.origin))}</p>
+      <div class="chip-row"><span class="pill soft">${t(`kind_${tpl.kind}`)}</span><span class="pill soft">${t(`difficulty_${tpl.difficulty}`)}</span></div>
+    </section>
+    <div class="stat-row">
+      <div class="stat"><span class="stat-label">${t('salt')}</span><span class="stat-value">${tpl.salt ? `${tpl.salt.def}%` : '—'}</span></div>
+      <div class="stat"><span class="stat-label">${t('duration')}</span><span class="stat-value">${fmtRange(tpl.minH, tpl.maxH)}</span></div>
+      <div class="stat"><span class="stat-label">${t('planRhythm')}</span><span class="stat-value">${esc(rhythmShort(tpl))}</span></div>
+    </div>
+    <section class="panel"><h2 class="panel-title">📖 ${t('tplWhat')}</h2><p>${esc(tl(tpl.info))}</p></section>
+    <section class="panel"><h2 class="panel-title">✅ ${t('tplGood')}</h2><p>${esc(tl(tpl.good))}</p></section>
+    <section class="panel"><h2 class="panel-title">⚠️ ${t('tplMistakes')}</h2><p>${esc(tl(tpl.mistakes))}</p></section>
+    ${tpl.veg ? `<p class="note">🪨 ${t('vegTipShort')}</p>` : ''}
+    <p class="field-hint">${t('templateDisclaimer')}</p>
+    <div class="sticky-cta"><a class="btn primary big" href="#/new/${tpl.id}">${t('create')}</a></div>
+    <div class="cta-space"></div>`;
 }
 
 // ---------- Potje-detail (F3, F4, F7, F8, F11, F12) ----------
@@ -586,46 +594,56 @@ function viewDex(now) {
   const dex = fermidex(state.jars);
   const badges = earnedBadges(state.jars, allTemplates(), now);
   const streak = burpStreak(state.jars, now);
+  const got = TEMPLATES.filter((x) => dex.has(x.id)).length;
   return `${header(t('dexTitle'))}
-    <p class="muted">${t('dexIntroWorld')} <b>${[...dex].filter((id) => TEMPLATES.some((x) => x.id === id)).length}/${TEMPLATES.length}</b></p>
+    <section class="panel">
+      <div class="progress-head"><p><span class="big-num">${got}</span> <span class="muted">/ ${TEMPLATES.length}</span></p><span class="pill soft">${badges.filter((b) => b.earned).length} 🏅</span></div>
+      <div class="bar"><div class="bar-fill" style="width:${(got / TEMPLATES.length) * 100}%"></div></div>
+      <p class="field-hint">${t('dexIntroWorld')}</p>
+    </section>
     ${CONTINENTS.map((c) => {
       const list = TEMPLATES.filter((x) => x.continent === c);
-      const got = list.filter((x) => dex.has(x.id)).length;
-      return `<h2>${t(`continent_${c}`)} <span class="count-muted">${got}/${list.length}</span></h2>
+      return `<h2>${t(`continent_${c}`)} <span class="count-muted">${list.filter((x) => dex.has(x.id)).length}/${list.length}</span></h2>
       <div class="dex">${list.map((tpl) => {
         const has = dex.has(tpl.id);
         return `<a class="dex-item${has ? '' : ' locked'}" href="#/template/${tpl.id}">
-          ${character(tpl.species, has ? 'proud' : 'happy', { size: 72, avatar: tpl.avatar, label: has ? tl(tpl.name) : t('dexLocked') })}
-          <span>${has ? esc(tl(tpl.name)) : '???'}</span><small>${has ? esc(tl(tpl.origin)) : t('dexLocked')}</small></a>`;
+          ${character(tpl.species, has ? 'proud' : 'happy', { size: 64, avatar: tpl.avatar, label: has ? tl(tpl.name) : t('dexLocked') })}
+          <span>${has ? esc(tl(tpl.name)) : '???'}</span></a>`;
       }).join('')}</div>`;
     }).join('')}
-    ${state.jars.some((j) => j.recipe) ? `<h2>✨ ${t('dexOwn')}</h2><div class="mini-row">${state.jars.filter((j) => j.recipe).map((j) => `<a class="mini" href="#/jar/${j.id}">${character('custom', j.harvestedAt ? 'proud' : 'happy', { size: 56, avatar: j.avatar })}<span>${esc(j.name)}</span><small>${esc(j.recipe.items.map((i) => tl(i.name)).join(' + '))}</small></a>`).join('')}</div>` : ''}
+    ${state.jars.some((j) => j.recipe) ? `<h2>✨ ${t('dexOwn')}</h2><nav class="panel list">${state.jars.filter((j) => j.recipe).map((j) => `<a class="list-row" href="#/jar/${j.id}">${character('custom', j.harvestedAt ? 'proud' : 'happy', { size: 44, avatar: j.avatar })}<span class="list-main"><span class="list-title">${esc(j.name)}</span><span class="list-sub">${esc(j.recipe.items.map((i) => tl(i.name)).join(' + '))}</span></span><span class="chev" aria-hidden="true">›</span></a>`).join('')}</nav>` : ''}
     <h2>${t('badgesTitle')}</h2>
-    ${streak ? `<p class="streak">🔥 ${t('streak', { n: streak })}</p>` : ''}
-    <ul class="badges">${badges.map((bd) => `<li class="${bd.earned ? 'earned' : ''}"><span class="badge-icon" aria-hidden="true">${bd.icon}</span><div><b>${t(`badge_${bd.id}`)}</b><small>${t(`badge_${bd.id}_d`)}</small></div><span class="sr">${bd.earned ? '✓' : '—'}</span></li>`).join('')}</ul>
-    <p><a class="btn" href="#/archive">📦 ${t('archiveTitle')}</a></p>`;
+    ${streak ? `<p class="note">🔥 ${t('streak', { n: streak })}</p>` : ''}
+    <ul class="panel list badge-list">${badges.map((bd) => `<li class="list-row static${bd.earned ? ' earned' : ' dim'}"><span class="list-icon badge-tile" aria-hidden="true">${bd.icon}</span><span class="list-main"><span class="list-title">${t(`badge_${bd.id}`)}</span><span class="list-sub">${t(`badge_${bd.id}_d`)}</span></span><span class="badge-state">${bd.earned ? '✓' : ''}</span><span class="sr">${bd.earned ? '✓' : '—'}</span></li>`).join('')}</ul>
+    <nav class="panel list"><a class="list-row" href="#/archive"><span class="list-icon" aria-hidden="true">📦</span><span class="list-main"><span class="list-title">${t('archiveTitle')}</span></span><span class="chev" aria-hidden="true">›</span></a></nav>`;
 }
 
 // ---------- Archief (F9, scenario 6) ----------
 
 function viewArchive() {
+  const now = Date.now();
   const done = state.jars.filter((j) => j.status !== 'active').sort((a, b) => Date.parse(b.harvestedAt) - Date.parse(a.harvestedAt));
   const best = done.filter((j) => j.rating).sort((a, b) => b.rating - a.rating).slice(0, 3);
-  const row = (jar) => {
+  const item = (jar) => {
     const tpl = jarTpl(jar);
     const lastTaste = [...jar.log].reverse().find((e) => e.kind === 'taste' && e.text);
-    return `<article class="card archive-card">
-      <a href="#/jar/${jar.id}">${jarChar(jar, Date.now(), 56)}</a>
-      <div class="grow">
-        <a href="#/jar/${jar.id}" class="today-name">${esc(jar.name)}</a> <span class="muted small">${esc(tl(tpl?.name))}</span>
-        <div class="small">${jar.rating ? `<span aria-label="${jar.rating}/5">${stars(jar.rating)}</span> · ` : ''}${fmtDuration((Date.parse(jar.harvestedAt) - Date.parse(jar.startedAt)) / HOUR)} · ${jar.ambientTemp ?? 20} °C${jar.saltPct ? ` · ${jar.saltPct}%` : ''} · ${t(jar.status === 'fridge' ? 'status_fridge' : 'status_done')}</div>
-        ${lastTaste ? `<div class="muted small">“${esc(lastTaste.text)}”</div>` : ''}
-      </div>
-      <a class="btn small" href="${repeatHref(jar)}" aria-label="${t('repeat')}">🔁</a>
-    </article>`;
+    const facts = [tl(tpl?.name), fmtDuration((Date.parse(jar.harvestedAt) - Date.parse(jar.startedAt)) / HOUR), `${jar.ambientTemp ?? 20} °C`, jar.saltPct ? `${Number(jar.saltPct).toLocaleString(getLang())}%` : ''].filter(Boolean).join(' · ');
+    return `<div class="list-row archive-row">
+      <a class="archive-link" href="#/jar/${jar.id}">
+        ${jarChar(jar, now, 48)}
+        <span class="list-main">
+          <span class="list-title">${esc(jar.name)} ${jar.rating ? `<span class="stars-inline small" aria-label="${jar.rating}/5">${stars(jar.rating)}</span>` : ''}</span>
+          <span class="list-sub">${esc(facts)}</span>
+          ${lastTaste ? `<span class="list-quote">“${esc(lastTaste.text)}”</span>` : ''}
+        </span>
+      </a>
+      <a class="icon-btn" href="${repeatHref(jar)}" aria-label="${t('repeat')}: ${esc(jar.name)}" title="${t('repeat')}">🔁</a>
+    </div>`;
   };
   return `${header(t('archiveTitle'), '#/dex')}
-    ${done.length ? `${best.length ? `<h2>🏆 ${t('bestBatches')}</h2>${best.map(row).join('')}<h2>${t('archiveTitle')}</h2>` : ''}${done.map(row).join('')}` : `<p class="muted">${t('archiveEmpty')}</p>`}`;
+    ${done.length ? `${best.length ? `<h2>🏆 ${t('bestBatches')}</h2><section class="panel list">${best.map(item).join('')}</section>` : ''}
+      <h2>${t('archiveTitle')} <span class="count-muted">${done.length}</span></h2><section class="panel list">${done.map(item).join('')}</section>`
+      : `<section class="panel empty">${character('sauerkraut', 'retired', { size: 90 })}<p>${t('archiveEmpty')}</p></section>`}`;
 }
 
 // ---------- Kahm of schimmel (V1). Geen karakter: hier spreekt de app gewoon helder. ----------
@@ -1026,8 +1044,11 @@ function openModal(html, onSubmit) {
 
 const ratingInput = (name, val = 0) => `<div class="stars" role="radiogroup">${[1, 2, 3, 4, 5].map((n) => `<label><input type="radio" name="${name}" value="${n}"${n === val ? ' checked' : ''}><span aria-hidden="true">★</span><span class="sr">${n}</span></label>`).join('')}</div>`;
 const OBS = ['bubbles', 'sourSmell', 'cloudy', 'kahm', 'mold', 'offSmell', 'soft'];
-const obsInputs = () => `<fieldset class="obs"><legend>${t('obsTitle')}</legend>${OBS.map((k) => `<label class="check"><input type="checkbox" name="obs_${k}"> ${t(`obs_${k}`)}</label>`).join('')}</fieldset>`;
-const cancelBtn = () => `<button class="btn" value="cancel" formnovalidate>${t('cancel')}</button>`;
+const obsInputs = () => `<fieldset class="obs-chips"><legend class="field-label">${t('obsTitle')}</legend><div class="filters wrap">${OBS.map((k) => `<label class="chip toggle${['mold', 'offSmell'].includes(k) ? ' danger' : ''}"><input type="checkbox" name="obs_${k}">${t(`obs_${k}`)}</label>`).join('')}</div></fieldset>`;
+const cancelBtn = () => `<button class="btn ghost" value="cancel" formnovalidate>${t('cancel')}</button>`;
+const noteField = (rows = 2) => field(t('note'), `<textarea name="text" rows="${rows}" placeholder="${getLang() === 'nl' ? 'Wat valt je op?' : 'What do you notice?'}"></textarea>`);
+const photoField = () => `<label class="photo-drop small"><input type="file" name="photo" accept="image/*" capture="environment"><span>📷 ${t('addPhoto')}</span></label>`;
+const modalHead = (icon, title, sub = '') => `<header class="modal-head"><span class="modal-icon" aria-hidden="true">${icon}</span><div><h2>${title}</h2>${sub ? `<p class="field-hint">${sub}</p>` : ''}</div><button class="icon-btn" value="cancel" formnovalidate aria-label="${t('close')}">✕</button></header>`;
 
 async function entryFromForm(form, kind) {
   const f = form.elements;
@@ -1046,19 +1067,19 @@ async function entryFromForm(form, kind) {
 
 function maybeSafetyAlert(entry) {
   if (entry.obs && (entry.obs.mold || entry.obs.offSmell)) {
-    openModal(`<h2>⚠️ ${t('safetyTitle')}</h2><p><strong>${t('moldAlert')}</strong></p><p>${t('moldDesc')}</p>
-      <div class="actions"><a class="btn primary" href="#/safety" onclick="this.closest('dialog').close()">${t('openChecker')}</a><button class="btn">${t('close')}</button></div>`);
+    openModal(`${modalHead('⚠️', t('safetyTitle'))}<p class="note warn">${t('moldAlert')}</p><p>${t('moldDesc')}</p>
+      <div class="modal-actions"><a class="btn primary big" href="#/safety" onclick="this.closest('dialog').close()">${t('openChecker')}</a><button class="btn ghost">${t('close')}</button></div>`);
   }
 }
 
 function dialogTaste(jar) {
-  openModal(`<h2>🥄 ${t('tasteText')}</h2>
-    ${ratingInput('taste')}
-    <label>${t('note')}<textarea name="text" rows="2"></textarea></label>
+  openModal(`${modalHead('🥄', t('tasteText'), esc(jar.name))}
+    <div class="center">${ratingInput('taste')}</div>
+    ${noteField()}
     ${obsInputs()}
-    <label>${t('addPhoto')}<input type="file" name="photo" accept="image/*" capture="environment"></label>
-    <p><strong>${t('tasteDecision')}</strong></p>
-    <div class="actions">${cancelBtn()}<button class="btn" value="keep">⏳ ${t('keepGoing')}</button><button class="btn primary" value="harvest">🧺 ${t('harvestNow')}</button></div>`,
+    ${photoField()}
+    <p class="field-label">${t('tasteDecision')}</p>
+    <div class="modal-actions two"><button class="btn big" value="keep">⏳ ${t('keepGoing')}</button><button class="btn primary big" value="harvest">🧺 ${t('harvestNow')}</button></div>`,
   async (form, decision) => {
     const entry = await entryFromForm(form, 'taste');
     entry.decision = decision;
@@ -1069,11 +1090,11 @@ function dialogTaste(jar) {
 }
 
 function dialogLog(jar, kind) {
-  openModal(`<h2>${kind === 'obs' ? `👀 ${t('addObs')}` : `📝 ${t('addNote')}`}</h2>
-    <label>${t('note')}<textarea name="text" rows="3"></textarea></label>
+  openModal(`${modalHead(kind === 'obs' ? '👀' : '📝', t(kind === 'obs' ? 'addObs' : 'addNote'), esc(jar.name))}
     ${kind === 'obs' ? obsInputs() : ''}
-    <label>${t('addPhoto')}<input type="file" name="photo" accept="image/*" capture="environment"></label>
-    <div class="actions">${cancelBtn()}<button class="btn primary" value="ok">${t('save')}</button></div>`,
+    ${noteField(3)}
+    ${photoField()}
+    <div class="modal-actions"><button class="btn primary big" value="ok">${t('save')}</button></div>`,
   async (form) => {
     const entry = await entryFromForm(form, kind);
     if (!entry.text && !entry.obs && !entry.photo) return;
@@ -1084,11 +1105,15 @@ function dialogLog(jar, kind) {
 
 function dialogHarvest(jar, rating = null) {
   const bb = Date.now() + jar.fridgeDays * DAY;
-  openModal(`<div class="center">${character(jar.species, 'retired', { size: 100, avatar: jar.avatar })}</div>
-    <h2>🧺 ${t('harvestTitle')}: ${esc(jar.name)}</h2>
-    <p>${t('harvestText')} ${t('bestBefore', { d: fmtDate(bb) })}.</p>
-    <p>${t('rating')}</p>${ratingInput('rating', rating || 0)}
-    <div class="actions">${cancelBtn()}<button class="btn primary" value="ok">❄️ ${t('confirmHarvest')}</button></div>`,
+  openModal(`${modalHead('🧺', `${t('harvestTitle')}: ${esc(jar.name)}`, t('harvestText'))}
+    <div class="create-hero">${character(jar.species, 'retired', { size: 110, avatar: jar.avatar })}</div>
+    <div class="stat-row two">
+      <div class="stat"><span class="stat-label">${t('duration')}</span><span class="stat-value">${fmtDuration((Date.now() - Date.parse(jar.startedAt)) / HOUR)}</span></div>
+      <div class="stat"><span class="stat-label">❄️ ${getLang() === 'nl' ? 'Houdbaar tot' : 'Keeps until'}</span><span class="stat-value">${fmtShortDate(bb)}</span></div>
+    </div>
+    <p class="field-label center">${t('rating')}</p>
+    <div class="center">${ratingInput('rating', rating || 0)}</div>
+    <div class="modal-actions"><button class="btn primary big" value="ok">❄️ ${t('confirmHarvest')}</button></div>`,
   (form) => {
     const r = Number([...form.elements.rating].find((x) => x.checked)?.value || 0) || null;
     updateJar(jar.id, (j) => harvest(j, Date.now(), r));
@@ -1099,15 +1124,16 @@ function dialogHarvest(jar, rating = null) {
 function dialogEdit(jar) {
   const short = jar.maxH < 48;
   const unit = short ? 1 : 24;
-  openModal(`<h2>✏️ ${esc(jar.name)}</h2>
-    <label>${t('fName')}<input name="name" value="${esc(jar.name)}" required maxlength="40"></label>
-    <label>${t('fStart')}<input type="datetime-local" name="startedAt" value="${toLocalInput(Date.parse(jar.startedAt))}"></label>
-    <div class="grid3">
-      <label>${t(short ? 'fMinHours' : 'fMinDays')}<input type="number" name="min" min="1" value="${Math.round(jar.minH / unit)}"></label>
-      <label>${t(short ? 'fMaxHours' : 'fMaxDays')}<input type="number" name="max" min="1" value="${Math.round(jar.maxH / unit)}"></label>
-      <label>${t('fTemp')}<input type="number" name="ambientTemp" step="0.5" min="5" max="40" value="${jar.ambientTemp ?? 20}"></label>
+  const u = short ? t('hours') : t('days');
+  openModal(`${modalHead('✏️', esc(jar.name))}
+    ${field(t('fName'), `<input name="name" value="${esc(jar.name)}" required maxlength="40">`)}
+    <div class="field-grid">
+      ${field(t('fStart'), `<input type="datetime-local" name="startedAt" value="${toLocalInput(Date.parse(jar.startedAt))}">`)}
+      ${field(t('planTemp'), `<input type="number" name="ambientTemp" step="0.5" min="5" max="40" value="${jar.ambientTemp ?? 20}" inputmode="decimal">`, '°C')}
+      ${field(t(short ? 'fMinHours' : 'fMinDays'), `<input type="number" name="min" min="1" value="${Math.round(jar.minH / unit)}" inputmode="numeric">`, u)}
+      ${field(t(short ? 'fMaxHours' : 'fMaxDays'), `<input type="number" name="max" min="1" value="${Math.round(jar.maxH / unit)}" inputmode="numeric">`, u)}
     </div>
-    <div class="actions">${cancelBtn()}<button class="btn primary" value="ok">${t('save')}</button></div>`,
+    <div class="modal-actions"><button class="btn primary big" value="ok">${t('save')}</button></div>`,
   (form) => {
     const f = form.elements;
     const minH = Number(f.min.value) * unit;
@@ -1124,9 +1150,9 @@ function dialogEdit(jar) {
 
 function dialogSaveTemplate(jar) {
   const base = jarTpl(jar);
-  openModal(`<h2>💾 ${t('saveTemplate')}</h2>
-    <label>${t('templateName')}<input name="name" required maxlength="40" value="${esc(`${jar.name} (${tl(base.name)})`)}"></label>
-    <div class="actions">${cancelBtn()}<button class="btn primary" value="ok">${t('save')}</button></div>`,
+  openModal(`${modalHead('💾', t('saveTemplate'))}
+    ${field(t('templateName'), `<input name="name" required maxlength="40" value="${esc(`${jar.name} (${tl(base.name)})`)}">`)}
+    <div class="modal-actions"><button class="btn primary big" value="ok">${t('save')}</button></div>`,
   (form) => {
     const tpl = templateFromJar(jar, base.custom ? tplById(base.baseId) || base : base, form.elements.name.value.trim());
     commit((s) => { s.customTemplates.push(tpl); });
@@ -1136,9 +1162,9 @@ function dialogSaveTemplate(jar) {
 
 function dialogWelcome() {
   openModal(`<div class="center">${character('sauerkraut', 'happy', { size: 90 })}${character('secondferment', 'curious', { size: 90 })}${character('miso', 'proud', { size: 90 })}</div>
-    <h2>${t('welcomeTitle')}</h2><p>${t('welcomeText')}</p>
-    <p class="disclaimer">${t('disclaimer')}</p>
-    <div class="actions"><button class="btn primary big" value="ok">${t('welcomeOk')}</button></div>`,
+    <h2 class="center">${t('welcomeTitle')}</h2><p class="center">${t('welcomeText')}</p>
+    <p class="note warn">${t('disclaimer')}</p>
+    <div class="modal-actions"><button class="btn primary big" value="ok">${t('welcomeOk')}</button></div>`,
   () => commit((s) => { s.seenWelcome = true; }, { rerender: false }));
 }
 
@@ -1171,12 +1197,11 @@ function download(name, content, type) {
 
 // Downloaden kan in sommige omgevingen geblokkeerd zijn; daarom ook altijd kopiëren.
 function dialogExport(name, content, type) {
-  openModal(`<h2>${esc(name)}</h2>
+  openModal(`${modalHead('📄', esc(name))}
     <textarea id="export-text" rows="8" readonly>${esc(content)}</textarea>
-    <div class="actions">
-      <button class="btn" type="button" data-action="copy-export">📋 ${getLang() === 'nl' ? 'Kopiëren' : 'Copy'}</button>
-      <button class="btn primary" value="download">⬇️ Download</button>
-      <button class="btn" value="cancel">${t('close')}</button>
+    <div class="modal-actions two">
+      <button class="btn big" type="button" data-action="copy-export">📋 ${getLang() === 'nl' ? 'Kopiëren' : 'Copy'}</button>
+      <button class="btn primary big" value="download">⬇️ Download</button>
     </div>`,
   () => download(name, content, type));
 }
@@ -1252,8 +1277,8 @@ document.addEventListener('click', async (e) => {
     }
     case 'finish': updateJar(id, (j) => ({ ...j, status: 'done', finishedAt: nowISO() })); break;
     case 'delete':
-      openModal(`<h2>${t('confirmDelete')}</h2><p><strong>${esc(jar.name)}</strong></p>
-        <div class="actions">${cancelBtn()}<button class="btn primary danger-fill" value="ok">${t('deleteJar')}</button></div>`,
+      openModal(`${modalHead('🗑️', t('confirmDelete'), esc(jar.name))}
+        <div class="modal-actions two">${cancelBtn()}<button class="btn primary danger-fill" value="ok">${t('deleteJar')}</button></div>`,
       () => { commit((s) => { s.jars = s.jars.filter((j) => j.id !== id); }, { rerender: false }); location.hash = '#/shelf'; });
       break;
     case 'shuffle-name': {
