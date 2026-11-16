@@ -41,6 +41,11 @@ export function jarFromTemplate(tpl, fields = {}, now = Date.now()) {
     continent: tpl.continent,
     avatar: tpl.avatar || null,
     tempFixed: !!tpl.tempFixed,
+    // Starter (bijv. zuurdesem): geen einde, wel een plek (aanrecht of koelkast) met een eigen voedritme.
+    starter: !!tpl.starter,
+    location: tpl.starter ? 'counter' : undefined,
+    feedCounterH: tpl.feedCounterH,
+    feedFridgeH: tpl.feedFridgeH,
     recipe: tpl.recipe || null,
     nextPhase: tpl.nextPhase || null,
     status: 'active',
@@ -78,7 +83,8 @@ export function progress(jar, now = Date.now()) {
   const maxH = jar.maxH * f;
   const harvestH = minH + (maxH - minH) / 2;
   let stage;
-  if (elapsedH < minH) stage = 'active';
+  if (jar.starter) stage = elapsedH < minH ? 'active' : 'established';
+  else if (elapsedH < minH) stage = 'active';
   else if (elapsedH < harvestH) stage = 'tasteReady';
   else if (elapsedH <= maxH) stage = 'harvestReady';
   else stage = 'overdue';
@@ -103,9 +109,11 @@ export function burpState(jar, now = Date.now()) {
   if (jar.status !== 'active' || !jar.burp?.length || jar.action === 'none') return null;
   const start = ts(jar.startedAt);
   const last = jar.burps.length ? ts(jar.burps[jar.burps.length - 1]) : start;
-  const every = burpEveryAt(jar.burp, Math.max(0, (last - start) / HOUR));
+  const every = jar.starter ? starterFeedH(jar) : burpEveryAt(jar.burp, Math.max(0, (last - start) / HOUR));
   if (!every) return null;
-  const dueAt = last + every * HOUR;
+  let dueAt = last + every * HOUR;
+  // Net uit de koelkast gehaald om te bakken: meteen voeden.
+  if (jar.starter && jar.location !== 'fridge' && jar.movedAt && ts(jar.movedAt) > last) dueAt = Math.min(dueAt, ts(jar.movedAt));
   const lateH = (now - dueAt) / HOUR;
   return { dueAt, lateH, everyH: every, last, due: lateH >= 0, late: lateH > 12 };
 }
@@ -115,8 +123,20 @@ export function lastTaste(jar) {
   return null;
 }
 
+export const starterFeedH = (jar) => (jar.location === 'fridge' ? jar.feedFridgeH || 7 * 24 : jar.feedCounterH || 24);
+
+// Piek na het voeden (4 tot 8 uur): het moment om te bakken.
+export function starterPeak(jar, now = Date.now()) {
+  if (!jar.starter || jar.location === 'fridge' || !jar.burps.length) return null;
+  const last = ts(jar.burps[jar.burps.length - 1]);
+  if (jar.movedAt && ts(jar.movedAt) > last) return null;
+  const from = last + 4 * HOUR;
+  const to = last + 8 * HOUR;
+  return { from, to, now: now >= from && now <= to, soon: now < from };
+}
+
 export function tasteState(jar, now = Date.now()) {
-  if (jar.status !== 'active') return null;
+  if (jar.status !== 'active' || jar.starter) return null;
   const p = progress(jar, now);
   const lt = lastTaste(jar);
   const dueAt = lt && lt >= p.tasteAt ? lt + jar.tasteEveryH * HOUR : p.tasteAt;
@@ -128,6 +148,12 @@ export function mood(jar, now = Date.now()) {
   if (jar.status !== 'active') return 'retired';
   const p = progress(jar, now);
   const b = burpState(jar, now);
+  if (jar.starter) {
+    if (jar.location === 'fridge') return b && b.late ? 'hungry' : 'chilling';
+    if (b && b.due) return 'hungry';
+    if (p.stage === 'established' && starterPeak(jar, now)?.now) return 'peak';
+    return p.elapsedH < Math.min(48, p.minH * 0.3) ? 'sleepy' : 'happy';
+  }
   if (b && jar.action === 'burp') {
     if (b.late) return 'stressed';
     if (b.due) return 'bloated';
@@ -159,6 +185,7 @@ export function tasks(jar, now = Date.now()) {
       pressure, score: (pressure ? 200 : b.late ? 150 : 100) + Math.min(b.lateH, 48),
     });
   }
+  if (jar.starter) return out;
   if (p.stage === 'overdue') out.push({ type: 'overdue', dueAt: p.endAt, score: 90 });
   else if (p.stage === 'harvestReady') out.push({ type: 'harvest', dueAt: p.harvestAt, score: 70 });
   const t = tasteState(jar, now);

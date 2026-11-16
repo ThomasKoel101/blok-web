@@ -37,3 +37,24 @@ test('yoghurt: vaste temperatuur, duur schuift niet mee', () => {
   assert.equal(progress(j, t0).maxH, 12);
   assert.equal(progress(j, t0 + 7 * HOUR).stage, 'tasteReady');
 });
+
+test('zuurdesemstarter: geen proeven of oogsten, wel aanrecht en koelkast', () => {
+  const j = jarFromTemplate(T.sourdough, { startedAt: t0 }, t0);
+  assert.equal(j.starter, true);
+  assert.equal(j.location, 'counter');
+  const later = t0 + 30 * 24 * HOUR;
+  j.burps.push(new Date(later - 2 * HOUR).toISOString());
+  assert.equal(progress(j, later).stage, 'established');
+  assert.deepEqual(tasks(j, later), [], 'geen proef- of oogsttaak');
+  // Koelkast: wekelijks voeden, rustend karakter.
+  const f = { ...j, location: 'fridge', movedAt: new Date(later).toISOString() };
+  assert.equal(mood(f, later + 3 * 24 * HOUR), 'chilling');
+  assert.equal(tasks(f, later + 3 * 24 * HOUR).length, 0);
+  assert.equal(tasks(f, later + 7 * 24 * HOUR)[0].type, 'feed');
+  // Uit de koelkast om te bakken: meteen voeden.
+  const out = { ...f, location: 'counter', movedAt: new Date(later + 2 * 24 * HOUR).toISOString() };
+  assert.equal(tasks(out, later + 2 * 24 * HOUR + 60e3)[0].type, 'feed');
+  // Na voeden: piek 4 tot 8 uur later.
+  const fed = { ...out, burps: [...out.burps, new Date(later + 2 * 24 * HOUR + 120e3).toISOString()] };
+  assert.equal(mood(fed, later + 2 * 24 * HOUR + 5 * HOUR), 'peak');
+});
