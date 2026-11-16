@@ -13,6 +13,17 @@ npm test         # unit-tests van de fermentatielogica
 
 Open http://localhost:8080. Onder **Meer → Demo-potjes laden** zie je alle stemmingen direct.
 
+## Installeren op je telefoon
+
+Fermi is een installeerbare PWA. Zet de map `fermi/` op een HTTPS-host (bijv. GitHub Pages, Vercel of Netlify)
+en open de URL op je telefoon:
+
+- **Android (Chrome)**: Meer → Installeren, of het browsermenu → "App installeren".
+- **iPhone/iPad (Safari)**: Delen → "Zet op beginscherm".
+
+Na de eerste keer openen werkt de app volledig offline. Let op: het Claude-artifact is alleen een preview; daar
+draait geen service worker en kun je niet installeren.
+
 ## Structuur
 
 | Bestand | Inhoud |
@@ -24,7 +35,8 @@ Open http://localhost:8080. Onder **Meer → Demo-potjes laden** zie je alle ste
 | `js/app.js` | Schermen: Vandaag, Plank, Nieuw (2 stappen), Potje, Fermidex, Archief, Kahm-checker, Meer |
 | `js/notify.js` | Lokale meldingen, stil-uur, dringende F2-drukwaarschuwing |
 | `js/store.js` | Opslag in `localStorage` |
-| `sw.js` | Offline-cache en meldingen met "Geburpt"-actie |
+| `sw.js` | Service worker: app-shell offline (stale-while-revalidate) en meldingen met "Geburpt"-actie |
+| `manifest.json`, `icons/` | Web-app-manifest en PNG-iconen (192, 512, maskable, Apple) zodat Fermi installeerbaar is |
 
 ## Requirements-dekking
 

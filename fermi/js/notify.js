@@ -33,8 +33,8 @@ function options(jar, type, urgent, extra = {}) {
   return {
     body: message(jar, type, urgent),
     tag: `${jar.id}:${type}`,
-    icon: 'icon.svg',
-    badge: 'icon.svg',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
     requireInteraction: urgent,
     renotify: urgent,
     data: { jarId: jar.id, type },
@@ -84,5 +84,5 @@ export async function scheduleAhead(state, now = Date.now()) {
 }
 
 export function test() {
-  show('Fermi', { body: '🫙 ' + t('notifOn'), icon: 'icon.svg', tag: 'test' });
+  show('Fermi', { body: '🫙 ' + t('notifOn'), icon: 'icons/icon-192.png', tag: 'test' });
 }

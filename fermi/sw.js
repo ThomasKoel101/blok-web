@@ -1,7 +1,11 @@
-// Service worker: offline-cache (N1) en afhandeling van aangetikte meldingen.
-const CACHE = 'fermi-v2';
+// Service worker: maakt Fermi een installeerbare app die volledig offline werkt (N1),
+// en handelt aangetikte meldingen af.
+// Strategie: app-shell vooraf cachen; daarna "stale-while-revalidate": direct uit de
+// cache (snel en offline), en op de achtergrond de nieuwste versie ophalen.
+const CACHE = 'fermi-v3';
 const ASSETS = [
-  './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
+  './', 'index.html', 'styles.css', 'manifest.json', 'icon.svg',
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
   'js/app.js', 'js/logic.js', 'js/templates.js', 'js/characters.js', 'js/i18n.js', 'js/store.js', 'js/notify.js', 'js/ingredients.js',
 ];
 
@@ -13,18 +17,26 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
-// Netwerk eerst (zodat updates binnenkomen), cache als terugval.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(
-    fetch(e.request)
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    // Navigaties (openen vanaf het beginscherm) krijgen altijd de app-shell.
+    const key = e.request.mode === 'navigate' ? 'index.html' : e.request;
+    const cached = await cache.match(key, { ignoreSearch: true });
+    const network = fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok) cache.put(key, res.clone());
         return res;
       })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('index.html'))),
-  );
+      .catch(() => null);
+    if (cached) {
+      e.waitUntil(network);
+      return cached;
+    }
+    return (await network) || (await cache.match('index.html')) || Response.error();
+  })());
 });
 
 self.addEventListener('notificationclick', (e) => {

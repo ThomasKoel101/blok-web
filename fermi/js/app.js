@@ -526,6 +526,12 @@ function viewMore() {
       <a class="card link-card" href="#/archive">📦 ${t('archiveTitle')}</a>
       <a class="card link-card" href="#/safety">🔍 ${t('safetyTitle')}</a>
     </nav>
+    ${swReady || isStandalone() ? `<section class="card">
+      <h2>📲 ${t('installTitle')}</h2>
+      ${isStandalone() ? `<p>✅ ${t('installed')}</p>`
+        : installPrompt ? `<button class="btn primary" data-action="install">${t('installApp')}</button>`
+        : `<p class="small">${/iphone|ipad|ipod/i.test(navigator.userAgent) ? t('installIos') : t('installOther')}</p>`}
+    </section>` : ''}
     <section class="card">
       <h2>${t('settingsTitle')}</h2>
       <label>${t('language')}<select data-setting="lang">${LANGS.map((l) => `<option value="${l}"${l === s.lang ? ' selected' : ''}>${l === 'nl' ? 'Nederlands' : 'English'}</option>`).join('')}</select></label>
@@ -1070,6 +1076,13 @@ function demoJars(now = Date.now()) {
   return [kraut, kimchi, f2, kombucha, miso, sauce, lemons, curtido, own, old1, old2];
 }
 
+// Installeren als app (Android/Chrome/Edge geven een eigen prompt; iOS via Delen).
+let installPrompt = null;
+let swReady = false;
+const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (route().parts[0] === 'more') render(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; render(); });
+
 // Event-delegatie voor alle knoppen met data-action.
 document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-action]');
@@ -1108,6 +1121,7 @@ document.addEventListener('click', async (e) => {
     }
     case 'notif-enable': await notify.enable(); notify.scheduleAhead(state); render(); break;
     case 'notif-test': notify.test(); break;
+    case 'install': if (installPrompt) { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; render(); } break;
     case 'export-csv': dialogExport(`fermi-logboek-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(state.jars), 'text/csv;charset=utf-8'); break;
     case 'export-json': dialogExport(`fermi-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1), 'application/json'); break;
     case 'copy-export': {
@@ -1159,7 +1173,7 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
 });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').then(() => notify.scheduleAhead(state)).catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(() => { swReady = true; if (route().parts[0] === 'more') render(); notify.scheduleAhead(state); }).catch(() => {});
 }
 
 render();
